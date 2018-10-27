@@ -13,3 +13,5 @@ gcloud compute instance-groups managed delete $INSTANCEGROUP --region $REGION --
 # delete instance templates
 gcloud compute instance-templates delete $INSTANCETEMPLATE-base --quiet || sleep 1
 gcloud compute instance-templates delete $INSTANCETEMPLATE --quiet || sleep 1
+
+gcloud compute images delete $IMAGE --quiet || sleep 1
