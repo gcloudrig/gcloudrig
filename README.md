@@ -5,7 +5,7 @@ Usage:
 - Set project name and any other variables in `./globals.sh`
 - Run `./setup.sh` to create a usable image, instance template and instance group
 - Create a disk (save the name as `GAMESDISK` variable in `./globals.sh`)
-- Run `./scale-up.sh\
+- Run `./scale-up.sh`
 - Use the above credentials to RDP to the instance
 - Install 'GRID® drivers for virtual workstations'
 - Enable auto login (start > run > 'control userpasswords2')
