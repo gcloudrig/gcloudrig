@@ -19,7 +19,7 @@ Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use [Clo
 ## Connecting to your instance
 - Run `./scale-up.sh` to start your instance.  Depending on what region you're using, this can take anywhere from 60 seconds to whenever a GPU becomes available.
 - Run `./reset-windows-password.sh` to get the IP, Username and Password you'll need to RDP to your instance and start installing software.
--- Alternatively, you can reset the password and download an RDP file in [Compute Engine > VM Instances](https://console.cloud.google.com/compute/instances).  See [Creating Passwords for Windows Instances](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances) and [Connecting to Windows Instances](https://cloud.google.com/compute/docs/instances/connecting-to-instance#windows) for more info.
+- Alternatively, visit [Compute Engine > VM Instances](https://console.cloud.google.com/compute/instances) to set a password and download an RDP file.  See [Creating Passwords for Windows Instances](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances) and [Connecting to Windows Instances](https://cloud.google.com/compute/docs/instances/connecting-to-instance#windows) for more info.
 
 ## Stopping your instance
 - Run `./scale-down.sh` to shutdown your instance, and prepare boot image and snapshot so your instance can start up in any zone/region next time.
