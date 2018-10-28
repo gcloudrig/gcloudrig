@@ -3,7 +3,7 @@ gcloudrig
 
 A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.com/sdk/gcloud/) to create and maintain a cloud gaming instance, on the cheap.
 
-Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use (Cloud Shell)[https://cloud.google.com/shell/].
+Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use [Cloud Shell](https://cloud.google.com/shell/).
 
 Default specs:
 -  Instance: 8 vCPU; 30GB RAM; 
