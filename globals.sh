@@ -111,7 +111,7 @@ function gcloudrig_boot_disk_to_image {
 
 	# delete existing boot image
 	gcloud compute images delete $IMAGE \
-		--quiet
+		--quiet || echo "assuming $IMAGE doesn't exist, continuing..."
 
 	# create boot image from boot snapshot
 	gcloud compute images create $IMAGE \
