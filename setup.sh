@@ -7,10 +7,7 @@ set -e
 
 # load globals
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-source $DIR/globals.sh
-
-# get zones for this region
-gcloudrig_set_zones
+source "$DIR/globals.sh"
 
 # create base instance template
 echo "Creating instance template $INSTANCETEMPLATE-base using latest $IMAGEBASEFAMILY image..."
@@ -74,7 +71,7 @@ gcloud beta compute instance-templates create $INSTANCETEMPLATE \
 	--maintenance-policy TERMINATE \
 	--no-boot-disk-auto-delete \
 	--no-restart-on-failure \
-	--quiet || echo 'blah'
+	--quiet
 
 # point managed instance group at new template
 echo "Tidying up..."

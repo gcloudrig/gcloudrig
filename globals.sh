@@ -26,16 +26,14 @@ INSTANCEGROUP="gcloudrig-group"
 INSTANCENAME="gcloudrig"
 INSTANCETEMPLATE="gcloudrig-template"
 
-# config
-gcloud config set project $PROJECT \
-	--quiet
+# always run
+function init_globals {
+	# config
+	gcloud config set project $PROJECT \
+		--quiet
 
-# returns 
-function array_contains () {
-	local e match="$1"
-	shift
-	for e; do [[ "$e" == "$match" ]] && return 0; done
-	return 1
+	# set zones for this region
+	gcloudrig_set_zones
 }
 
 # Populate $ZONES with any zones that has the accelerator resources we're after in the $REGION we want
@@ -64,11 +62,12 @@ function gcloudrig_start {
 		--format "value(currentActions)" \
 		--quiet
 
-	# wait 90s for the group to be stable, then scale down/up and try again
-	# some regions seem 'unofficially' have vws gpus (e.g. australia-southeast1) but not much capacity
-	# this *seems* to make our request bounce around until we land on a zone that has capacity at the point we ask for it
-	# which *seems* to be faster on average than just leaving it alone and, well, "waiting till stable".
-	while ! timeout 90 gcloud compute instance-groups managed wait-until-stable $INSTANCEGROUP --region $REGION --quiet; do
+	# wait
+	gcloud compute instance-groups managed wait-until-stable $INSTANCEGROUP --region $REGION --quiet
+
+	# wait 5m for the group to be stable, then scale down/up and take a gamble at another zone
+	# this seems to increase the chance of hitting a zone that has free capacity, when one is oversubscribed or down for maintenance.
+	while ! timeout 300 gcloud compute instance-groups managed wait-until-stable $INSTANCEGROUP --region $REGION --quiet; do
 		gcloud compute instance-groups managed resize $INSTANCEGROUP \
 			--size 0 \
 			--region $REGION \
@@ -141,8 +140,8 @@ function gcloudrig_boot_disk_to_image {
 	echo "Creating boot image, this may take some time..."
 
 	# delete existing boot image
-	gcloud compute images delete $IMAGE \
-		--quiet || echo "assuming $IMAGE doesn't exist, continuing..."
+	gcloud compute images delete $IMAGE --quiet || \
+		echo "assuming $IMAGE doesn't exist, continuing..."
 
 	# create boot image from boot disk
 	gcloud compute images create $IMAGE \
@@ -181,9 +180,8 @@ function gcloudrig_games_disk_to_snapshot {
 	gcloud compute snapshots add-labels $GAMESSNAP --labels "latest=true,$DISKLABEL=true"
 
 	# delete games disk
-	gcloud compute disks delete $GAMESDISK \
-		--zone $ZONE \
-		--quiet || echo "assuming $GAMESDISK is still in use, continuing..."
+	gcloud compute disks delete $GAMESDISK --zone $ZONE --quiet || \
+		echo "assuming $GAMESDISK is still in use, continuing..."
 
 }
 
@@ -197,14 +195,9 @@ function gcloudrig_mount_games_disk {
 	# restore games snapshot
 	# or create a new games disk
 	# or just keep going and assume a games disk already exists
-	gcloud compute disks create $GAMESDISK \
-		--zone $ZONE \
-		--source-snapshot $GAMESSNAP \
-		--quiet \
-	|| gcloud compute disks create $GAMESDISK \
-		--zone $ZONE \
-		--quiet \
-	|| echo "assuming $GAMESDISK exists, continuing..."
+	gcloud compute disks create $GAMESDISK --zone $ZONE --source-snapshot $GAMESSNAP --quiet || \
+		gcloud compute disks create $GAMESDISK --zone $ZONE --quiet || \
+			echo "assuming $GAMESDISK exists, continuing..."
 
 	# attach games disk
 	gcloud compute instances attach-disk $INSTANCE \
@@ -213,3 +206,5 @@ function gcloudrig_mount_games_disk {
 		--quiet
 
 }
+
+init_globals;

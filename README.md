@@ -43,6 +43,9 @@ Once everything's setup, avoid using RDP since it'll disconnect your "physical" 
 
 Whenever connecting to your instance, you should always use the ZeroTier IP. Only open up your instance's Public IP if that few extra milliseconds of software networking lag is worth foregoing basic network security.
 
+## Travelling?
+-  Change `REGION` in `./globals.sh` to the [GCP region with the lowest ping](http://www.gcping.com/).
+-  Run `./scale-up.sh`
 
 ## Starting over
 -  Run `./destroy.sh` and answer yes to all prompts.  This might not delete everything;  check cloud console for any remaining resources.
