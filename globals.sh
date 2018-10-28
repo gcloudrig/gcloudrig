@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# gcloudrig/globals.sh
+
 # region and project?
 REGION="us-west2"
 PROJECT="gcloudrig"
@@ -17,12 +19,12 @@ IMAGEBASEFAMILY="windows-2016"
 IMAGEBASEPROJECT="windows-cloud"
 
 # various resource and label names
-GAMESDISK="testrig-games"
-DISKLABEL="testrig"
-IMAGE="testrig"
-INSTANCEGROUP="testrig-group"
-INSTANCENAME="testrig"
-INSTANCETEMPLATE="testrig-template"
+GAMESDISK="gcloudrig-games"
+DISKLABEL="gcloudrig"
+IMAGE="gcloudrig"
+INSTANCEGROUP="gcloudrig-group"
+INSTANCENAME="gcloudrig"
+INSTANCETEMPLATE="gcloudrig-template"
 
 # config
 gcloud config set project $PROJECT \
@@ -169,9 +171,9 @@ function gcloudrig_games_disk_to_snapshot {
 
 	# remove the "latest=true" label from any existing gcloudrig snapshots
 	for SNAP in $(gcloud compute snapshots list --format "value(name)" --filter "labels.$DISKLABEL=true"); do
-		LATEST=gcloud compute snapshots describe $SNAP --format "value(labels.latest)"
+		LATEST=$(gcloud compute snapshots describe $SNAP --format "value(labels.latest)")
 		if [ $LATEST = "true" ]; then
-			gcloud compute snapshots remove-labels $SNAP --labels "latest=true"
+			gcloud compute snapshots remove-labels $SNAP --labels "latest"
 		fi
 	done
 

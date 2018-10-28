@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# gcloudrig/scale-up.sh
+
 # exit on error
 set -e
 

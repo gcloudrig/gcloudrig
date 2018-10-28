@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# gcloudrig/setup.sh
+
 # exit on error
 set -e
 

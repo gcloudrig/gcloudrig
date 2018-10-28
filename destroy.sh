@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# gcloudrig/destroy.sh
+
 # exit on error
 set -e
 
@@ -16,10 +18,6 @@ gcloud compute instance-groups managed delete $INSTANCEGROUP --region $REGION --
 # delete instance templates
 gcloud compute instance-templates delete $INSTANCETEMPLATE-base --quiet || echo .
 gcloud compute instance-templates delete $INSTANCETEMPLATE --quiet || echo .
-
-# delete snapshots
-gcloud compute snapshots delete $BOOTSNAP --quiet || echo .
-gcloud compute snapshots delete $GAMESSNAP --quiet || echo .
 
 # delete disks
 gcloud compute disks delete $GAMESDISK --zone $ZONE --quiet || echo .
