@@ -10,15 +10,67 @@ source $DIR/globals.sh
 # get zones for this region
 gcloudrig_set_zones
 
-# copy base image
-echo "Creating boot image from latest $IMAGEBASEFAMILY image..."
-gcloud compute images create $IMAGE \
-	--source-image $(gcloud compute images describe-from-family $IMAGEBASEFAMILY --project $IMAGEBASEPROJECT --format "value(name)") \
-	--source-image-project $IMAGEBASEPROJECT \
-	--guest-os-features WINDOWS \
+# create base instance template
+echo "Creating instance template $INSTANCETEMPLATE-base using latest $IMAGEBASEFAMILY image..."
+
+gcloud beta compute instance-templates create $INSTANCETEMPLATE-base \
+	--image-family $IMAGEBASEFAMILY \
+	--image-project $IMAGEBASEPROJECT \
+	--machine-type $INSTANCETYPE \
+	--accelerator $INSTANCEACCELERATOR \
+	--boot-disk-size $BOOTSIZE \
+	--boot-disk-type $BOOTTYPE \
+	--maintenance-policy TERMINATE \
+	--no-boot-disk-auto-delete \
+	--no-restart-on-failure \
 	--quiet
 
-# create instance template
+# create a managed instance group that covers all zones (GPUs tend to be oversubscribed in certain zones)
+# and give it the base instance template
+echo "Creating managed instance group $INSTANCEGROUP..."
+gcloud beta compute instance-groups managed create $INSTANCEGROUP \
+	--base-instance-name $INSTANCENAME \
+	--template $INSTANCETEMPLATE-base \
+	--size 0 \
+	--region $REGION \
+	--zones $ZONES \
+	--initial-delay 300 \
+	--quiet
+
+# turn it on
+echo "Starting gcloudrig..."
+gcloudrig_start
+
+# add extra volume
+echo "Mounting games disk..."
+gcloudrig_mount_games_disk
+
+# wait for 60 seconds, just in case
+echo "Waiting 60 seconds for instance to settle..."
+sleep 60
+
+# set windows credentials
+echo "Retrieving windows credentials..."
+CREDENTIALS=$(gcloud compute reset-windows-password $INSTANCE \
+		--user $USER \
+		--zone $ZONE \
+		--quiet \
+		--format "table[box,title='Windows Credentials'](ip_address,username,password)" \
+	)
+
+# shut it down
+echo "Stopping gcloudrig..."
+gcloudrig_stop
+
+# save boot image
+echo "Saving new boot image..."
+gcloudrig_boot_disk_to_image
+
+# save games snapshot
+echo "Snapshotting games disk..."
+gcloudrig_games_disk_to_snapshot
+
+# create actual instance template
 echo "Creating instance template $INSTANCETEMPLATE..."
 gcloud beta compute instance-templates create $INSTANCETEMPLATE \
 	--image $IMAGE \
@@ -31,50 +83,16 @@ gcloud beta compute instance-templates create $INSTANCETEMPLATE \
 	--no-restart-on-failure \
 	--quiet || echo 'blah'
 
-# create a managed instance group that covers all zones (GPUs tend to be oversubscribed in certain zones)
-# and give it the base instance template
-echo "Creating managed instance group $INSTANCEGROUP"
-gcloud beta compute instance-groups managed create $INSTANCEGROUP \
-	--base-instance-name $INSTANCENAME \
+# point managed instance group at new template
+echo "Tidying up..."
+gcloud compute instance-groups managed set-instance-template $INSTANCEGROUP \
 	--template $INSTANCETEMPLATE \
-	--size 0 \
 	--region $REGION \
-	--zones $ZONES \
-	--initial-delay 300 \
-	--quiet || echo 'blah'
+	--quiet
 
-# turn it on
-echo "Starting gcloudrig"
-gcloudrig_start
-
-# add extra volume
-echo "Mounting games disk"
-gcloudrig_mount_games_disk
-
-# wait for 60 seconds, just in case
-echo "Waiting 60 seconds for instance to settle"
-sleep 60
-
-# set windows credentials
-echo "Retrieving windows credentials"
-CREDENTIALS=$(gcloud compute reset-windows-password $INSTANCE \
-		--user $USER \
-		--zone $ZONE \
-		--quiet \
-		--format "table[box,title='Windows Credentials'](ip_address,username,password)" \
-	)
-
-# shut it down
-echo "Stopping gcloudrig"
-gcloudrig_stop
-
-# save boot image
-echo "Saving new boot image"
-gcloudrig_boot_disk_to_image
-
-# save games snapshot
-echo "Snapshotting games disk"
-gcloudrig_games_disk_to_snapshot
+# delete base template
+gcloud compute instance-templates delete $INSTANCETEMPLATE-base \
+	--quiet
 
 echo "Done!"
 echo

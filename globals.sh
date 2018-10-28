@@ -14,6 +14,7 @@ INSTANCENAME="test-gcloudrig"
 INSTANCETEMPLATE="test-gcloudrig-template"
 INSTANCETYPE="n1-standard-8"
 PROJECT="gcloudrig"
+DISKLABEL="test-gcloudrig"
 # REGION="australia-southeast1"
 REGION="us-west2"
 
@@ -141,15 +142,15 @@ function gcloudrig_games_disk_to_snapshot {
 		--quiet
 
 	# remove the "latest=true" label from any existing gcloudrig snapshots
-	for SNAP in $(gcloud compute snapshots list --format "value(name)" --filter "labels.gcloudrig=true"); do
-		LATEST=gcloud compute snapshots describe gcloudrig-games-snap --format "value(labels.latest)"
+	for SNAP in $(gcloud compute snapshots list --format "value(name)" --filter "labels.$DISKLABEL=true"); do
+		LATEST=gcloud compute snapshots describe $SNAP --format "value(labels.latest)"
 		if [ $LATEST = "true" ]; then
 			gcloud compute snapshots remove-labels $SNAP --labels "latest=true"
 		fi
 	done
 
 	# add labels to the latest snapshot
-	gcloud compute snapshots add-labels $GAMESSNAP --labels "latest=true,gcloudrig=true"
+	gcloud compute snapshots add-labels $GAMESSNAP --labels "latest=true,$DISKLABEL=true"
 
 	# delete games disk
 	gcloud compute disks delete $BOOTDISK \
