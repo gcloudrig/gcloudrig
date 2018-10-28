@@ -1,4 +1,4 @@
-#gcloudrig
+# gcloudrig
 
 A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.com/sdk/gcloud/) to create and maintain a cloud gaming instance, on the cheap.
 
