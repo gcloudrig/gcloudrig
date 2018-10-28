@@ -31,11 +31,13 @@ How to use
 
 # (Recommended) Install a bunch of things
 - Install [GRID® drivers for virtual workstations](https://cloud.google.com/compute/docs/gpus/add-gpus#installing_gridwzxhzdk37_drivers_for_virtual_workstations)
+- Install [Virtual Audio Cable](https://www.vb-audio.com/Cable/)
 - Setup [Autologon](https://docs.microsoft.com/en-au/sysinternals/downloads/autologon) to avoid a login screen at boot
 - Install [ZeroTier](https://zerotier.com/), create/join a network, and set it to run on boot by right-clicking it's icon in the system tray
 - Install [TightVNC Server](https://www.tightvnc.com/) and lock it down to zerotier's IP range (e.g. `allow 10.147.17.0-10.147.17.255`; `deny 0.0.0.0-255.255.255`).  Test a VNC connection using your instance's ZeroTier IP now.
 - Reboot to finish GPU driver installation.
 - Login with TightVNC, set display to "Show only on Monitor 2" and give it an appropriate screen resolution.  This will disable the primary 640x480 virtual screen, which can't be resized and gives Parsec headaches when games try to launch on it.
+- Attempt to change the volume; Windows should prompt that the Windows Sound service isn't running.  Start it.  Alternatviely, run `services.msc` and change it's startup options there.
 - Install [Parsec](https://parsecgaming.com/), save login details, and set it to run on boot by right-clicking it's icon in the system tray
 - Install game clients (e.g. Steam) and a game or two.
 - (Optional) Signup at [Duck DNS](https://www.duckdns.org/) and create a hostname for the private ZeroTier IP (NOT the public one).  If you really want a hostname for the dynamic public IP as well, create a secondary hostname and pick your favourite set of installation instructions.
