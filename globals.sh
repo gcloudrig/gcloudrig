@@ -181,9 +181,9 @@ function gcloudrig_games_disk_to_snapshot {
 	gcloud compute snapshots add-labels $GAMESSNAP --labels "latest=true,$DISKLABEL=true"
 
 	# delete games disk
-	gcloud compute disks delete $BOOTDISK \
+	gcloud compute disks delete $GAMESDISK \
 		--zone $ZONE \
-		--quiet || echo "assuming $BOOTDISK is still in use, continuing..."
+		--quiet || echo "assuming $GAMESDISK is still in use, continuing..."
 
 }
 
