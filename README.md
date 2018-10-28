@@ -4,11 +4,11 @@ A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.
 
 Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use [Cloud Shell](https://cloud.google.com/shell/).
 
-Default specs:
--  Instance: 8 vCPU; 30GB RAM; 
--  Accelerator: NVidia GRID P4 Virtual Worksatation GPU
--  Boot: 50GB SSD with Windows Server 2016
--  Storage: 500GB Games Disk
+### Specs:
+-  Instance: n1-standard-8
+-  Accelerator: 1x NVidia Tesla P4 Virtual Worksatation GPU
+-  Boot: 50GB pd-ssd + windows-2016
+-  Storage: 500GB pd-standard
 
 *Cloud responsibly. These scripts are provided as-is, with zero support. At the very least, create a new GCP project.*
 
