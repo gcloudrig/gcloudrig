@@ -1,50 +1,84 @@
 #!/usr/bin/env bash
 
-# vars
-BOOTSIZE="50GB"
-BOOTSNAP="test-gcloudrig-snap"
+# region and project?
+REGION="us-west2"
+PROJECT="gcloudrig"
+
+# instance and boot disk type?
+INSTANCETYPE="n1-standard-8"
 BOOTTYPE="pd-ssd"
-GAMESDISK="test-gcloudrig-games"
-IMAGE="test-gcloudrig"
+
+# what gpu and how many? see https://cloud.google.com/compute/docs/gpus
+ACCELERATORTYPE="nvidia-tesla-p4-vws"
+ACCELERATORCOUNT="1"
+
+# base image?
 IMAGEBASEFAMILY="windows-2016"
 IMAGEBASEPROJECT="windows-cloud"
-INSTANCEACCELERATOR="type=nvidia-tesla-p4-vws,count=1"
-INSTANCEGROUP="test-gcloudrig-group"
-INSTANCENAME="test-gcloudrig"
-INSTANCETEMPLATE="test-gcloudrig-template"
-INSTANCETYPE="n1-standard-8"
-PROJECT="gcloudrig"
-DISKLABEL="test-gcloudrig"
-# REGION="australia-southeast1"
-REGION="us-west2"
+
+# various resource and label names
+GAMESDISK="testrig-games"
+DISKLABEL="testrig"
+IMAGE="testrig"
+INSTANCEGROUP="testrig-group"
+INSTANCENAME="testrig"
+INSTANCETEMPLATE="testrig-template"
 
 # config
 gcloud config set project $PROJECT \
 	--quiet
 
+# returns 
+function array_contains () {
+	local e match="$1"
+	shift
+	for e; do [[ "$e" == "$match" ]] && return 0; done
+	return 1
+}
+
+# Populate $ZONES with any zones that has the accelerator resources we're after in the $REGION we want
 function gcloudrig_set_zones {
-	# what zones are available in our region?
 	OLDIFS=$IFS
 	IFS=";"
 	ZONES=""
+	ACCELERATORZONES=($(gcloud compute accelerator-types list --filter "name=$ACCELERATORTYPE" --format "value(zone)"))
 	for ZONEURI in $(gcloud compute regions describe $REGION --format="value(zones)"); do
-		ZONES=${ZONES},$(basename $ZONEURI)
+		local ZONE=$(basename $ZONEURI)
+		if [[ "${ACCELERATORZONES[@]}" =~ "$ZONE" ]]; then
+			ZONES=${ZONES},${ZONE}
+		fi;
 	done
 	IFS=$OLDIFS
 	ZONES=${ZONES:1}
 }
 
-# scale to 1 and wait
+# scale to 1
 function gcloudrig_start {
 
+	# scale to 1
 	gcloud compute instance-groups managed resize $INSTANCEGROUP \
 		--size 1 \
 		--region $REGION \
+		--format "value(currentActions)" \
 		--quiet
 
-	gcloud compute instance-groups managed wait-until-stable $INSTANCEGROUP \
-		--region $REGION \
-		--quiet
+	# wait 90s for the group to be stable, then scale down/up and try again
+	# some regions seem 'unofficially' have vws gpus (e.g. australia-southeast1) but not much capacity
+	# this *seems* to make our request bounce around until we land on a zone that has capacity at the point we ask for it
+	# which *seems* to be faster on average than just leaving it alone and, well, "waiting till stable".
+	while ! timeout 90 gcloud compute instance-groups managed wait-until-stable $INSTANCEGROUP --region $REGION --quiet; do
+		gcloud compute instance-groups managed resize $INSTANCEGROUP \
+			--size 0 \
+			--region $REGION \
+			--format "value(currentActions)" \
+			--quiet
+		gcloud compute instance-groups managed wait-until-stable $INSTANCEGROUP --region $REGION --quiet
+		gcloud compute instance-groups managed resize $INSTANCEGROUP \
+			--size 1 \
+			--region $REGION \
+			--format "value(currentActions)" \
+			--quiet
+	done
 
 	INSTANCE=$(gcloud compute instance-groups list-instances $INSTANCEGROUP \
 		--region $REGION \
@@ -102,31 +136,23 @@ function gcloudrig_stop {
 # turn boot disk into an image
 function gcloudrig_boot_disk_to_image {
 
-	# create boot disk snapshot (with VSS, just in case it's still running)
-	gcloud compute disks snapshot $BOOTDISK \
-		--snapshot-names $BOOTSNAP \
-		--zone $ZONE \
-		--guest-flush \
-		--quiet || echo "assuming $BOOTSNAP exists, continuing..."
+	echo "Creating boot image, this may take some time..."
 
 	# delete existing boot image
 	gcloud compute images delete $IMAGE \
 		--quiet || echo "assuming $IMAGE doesn't exist, continuing..."
 
-	# create boot image from boot snapshot
+	# create boot image from boot disk
 	gcloud compute images create $IMAGE \
-		--source-snapshot $BOOTSNAP \
+		--source-disk $BOOTDISK \
+		--source-disk-zone $ZONE \
 		--guest-os-features WINDOWS \
-		--quiet
-
-	# delete boot snapshot
-	gcloud compute snapshots delete $BOOTSNAP \
 		--quiet
 
 	# delete boot disk
 	gcloud compute disks delete $BOOTDISK \
 		--zone $ZONE \
-		--quiet || echo "assuming $BOOTDISK is still in use, continuing..."
+		--quiet
 
 }
 
@@ -136,7 +162,7 @@ function gcloudrig_games_disk_to_snapshot {
 	# save games snapshot
 	GAMESSNAP="$GAMESDISK-$(mktemp --dry-run XXXXXX | tr '[:upper:]' '[:lower:]')-snap"
 	gcloud compute disks snapshot $GAMESDISK \
-		--snapshot-name $GAMESSNAP \
+		--snapshot-names $GAMESSNAP \
 		--zone $ZONE \
 		--guest-flush \
 		--quiet

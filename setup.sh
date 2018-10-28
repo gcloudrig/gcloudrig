@@ -17,12 +17,12 @@ gcloud beta compute instance-templates create $INSTANCETEMPLATE-base \
 	--image-family $IMAGEBASEFAMILY \
 	--image-project $IMAGEBASEPROJECT \
 	--machine-type $INSTANCETYPE \
-	--accelerator $INSTANCEACCELERATOR \
-	--boot-disk-size $BOOTSIZE \
+	--accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
 	--boot-disk-type $BOOTTYPE \
 	--maintenance-policy TERMINATE \
 	--no-boot-disk-auto-delete \
 	--no-restart-on-failure \
+	--format "value(name)" \
 	--quiet
 
 # create a managed instance group that covers all zones (GPUs tend to be oversubscribed in certain zones)
@@ -34,7 +34,7 @@ gcloud beta compute instance-groups managed create $INSTANCEGROUP \
 	--size 0 \
 	--region $REGION \
 	--zones $ZONES \
-	--initial-delay 300 \
+	--format "value(name)" \
 	--quiet
 
 # turn it on
@@ -45,18 +45,10 @@ gcloudrig_start
 echo "Mounting games disk..."
 gcloudrig_mount_games_disk
 
-# wait for 60 seconds, just in case
+# wait for 60 seconds.  
+# in future, this is where we should poll a URL or wait for a pub/sub to let us know software installation is complete.
 echo "Waiting 60 seconds for instance to settle..."
 sleep 60
-
-# set windows credentials
-echo "Retrieving windows credentials..."
-CREDENTIALS=$(gcloud compute reset-windows-password $INSTANCE \
-		--user $USER \
-		--zone $ZONE \
-		--quiet \
-		--format "table[box,title='Windows Credentials'](ip_address,username,password)" \
-	)
 
 # shut it down
 echo "Stopping gcloudrig..."
@@ -75,8 +67,7 @@ echo "Creating instance template $INSTANCETEMPLATE..."
 gcloud beta compute instance-templates create $INSTANCETEMPLATE \
 	--image $IMAGE \
 	--machine-type $INSTANCETYPE \
-	--accelerator $INSTANCEACCELERATOR \
-	--boot-disk-size $BOOTSIZE \
+	--accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
 	--boot-disk-type $BOOTTYPE \
 	--maintenance-policy TERMINATE \
 	--no-boot-disk-auto-delete \
@@ -95,17 +86,3 @@ gcloud compute instance-templates delete $INSTANCETEMPLATE-base \
 	--quiet
 
 echo "Done!"
-echo
-echo $CREDENTIALS
-echo
-echo "Next steps: 
-	- Create a disk called '$GAMESDISK'
-	- Run \`./scale-up.sh\`
-	- Use the above credentials to RDP to the instance
-	- Install 'GRID® drivers for virtual workstations'
-	- Enable auto login (start > run > 'control userpasswords2')
-	- Install parsec, login, and set it to run on boot (right-click in the system tray)
-	- Install zerotier and join a network (create a new one if you haven't used zerotier before)
-	- Install TightVNC and lock it down to zerotier's IP range for difficult times
-	- Reboot and try connect with parsec
-	- Run \`./scale-down.sh\`"

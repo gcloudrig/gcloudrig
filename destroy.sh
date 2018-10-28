@@ -8,22 +8,22 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 source $DIR/globals.sh
 
 # shut it down
-gcloudrig_stop || sleep 1
+gcloudrig_stop || echo .
 
 # delete managed instance group
-gcloud compute instance-groups managed delete $INSTANCEGROUP --region $REGION  || sleep 1
+gcloud compute instance-groups managed delete $INSTANCEGROUP --region $REGION --quiet || echo .
 
 # delete instance templates
-gcloud compute instance-templates delete $INSTANCETEMPLATE-base  || sleep 1
-gcloud compute instance-templates delete $INSTANCETEMPLATE  || sleep 1
+gcloud compute instance-templates delete $INSTANCETEMPLATE-base --quiet || echo .
+gcloud compute instance-templates delete $INSTANCETEMPLATE --quiet || echo .
 
 # delete snapshots
-gcloud compute snapshots delete $BOOTSNAP || sleep 1
-gcloud compute snapshots delete $GAMESSNAP  || sleep 1
+gcloud compute snapshots delete $BOOTSNAP --quiet || echo .
+gcloud compute snapshots delete $GAMESSNAP --quiet || echo .
 
 # delete disks
-gcloud compute disks delete $GAMESDISK --zone $ZONE || sleep 1
-gcloud compute disks delete $BOOTDISK --zone $ZONE || sleep 1
+gcloud compute disks delete $GAMESDISK --zone $ZONE --quiet || echo .
+gcloud compute disks delete $BOOTDISK --zone $ZONE --quiet || echo .
 
 # delete image
-gcloud compute images delete $IMAGE  || sleep 1
+gcloud compute images delete $IMAGE --quiet || echo .
