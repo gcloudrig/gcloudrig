@@ -2,66 +2,61 @@
 
 # exit on error
 set -e
-set -x
 
 # load globals
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 source $DIR/globals.sh
 
-# what zones are available in our region?
-OLDIFS=$IFS
-IFS=";"
-ZONES=""
-for ZONEURI in $(gcloud compute regions describe $REGION --format="value(zones)"); do
-	ZONES=${ZONES},$(basename $ZONEURI)
-done
-IFS=$OLDIFS
-ZONES=${ZONES:1}
+# get zones for this region
+gcloudrig_set_zones
 
-# create a base instance template
-gcloud beta compute instance-templates create "$INSTANCETEMPLATE-base" \
-	--image=$(gcloud compute images describe-from-family $IMAGEBASEFAMILY --project $IMAGEBASEPROJECT --format "value(name)") \
-	--image-project=$IMAGEBASEPROJECT \
-	--machine-type=$INSTANCETYPE \
-	--accelerator=$INSTANCEACCELERATOR \
-	--boot-disk-size=$BOOTSIZE \
-	--boot-disk-type=$BOOTTYPE \
-	--maintenance-policy=TERMINATE \
-	--no-boot-disk-auto-delete \
-	--no-restart-on-failure \
-	--quiet || echo 'blah'
+# copy base image
+echo "Creating boot image from latest $IMAGEBASEFAMILY image..."
+gcloud compute images create $IMAGE \
+	--source-image $(gcloud compute images describe-from-family $IMAGEBASEFAMILY --project $IMAGEBASEPROJECT --format "value(name)") \
+	--source-image-project $IMAGEBASEPROJECT \
+	--guest-os-features WINDOWS \
+	--quiet
 
-
-# create actual instance template
-gcloud beta compute instance-templates create "$INSTANCETEMPLATE" \
-	--image=$IMAGE \
-	--machine-type=$INSTANCETYPE \
-	--accelerator=$INSTANCEACCELERATOR \
-	--boot-disk-size=$BOOTSIZE \
-	--boot-disk-type=$BOOTTYPE \
-	--maintenance-policy=TERMINATE \
+# create instance template
+echo "Creating instance template $INSTANCETEMPLATE..."
+gcloud beta compute instance-templates create $INSTANCETEMPLATE \
+	--image $IMAGE \
+	--machine-type $INSTANCETYPE \
+	--accelerator $INSTANCEACCELERATOR \
+	--boot-disk-size $BOOTSIZE \
+	--boot-disk-type $BOOTTYPE \
+	--maintenance-policy TERMINATE \
 	--no-boot-disk-auto-delete \
 	--no-restart-on-failure \
 	--quiet || echo 'blah'
 
 # create a managed instance group that covers all zones (GPUs tend to be oversubscribed in certain zones)
 # and give it the base instance template
+echo "Creating managed instance group $INSTANCEGROUP"
 gcloud beta compute instance-groups managed create $INSTANCEGROUP \
-	--base-instance-name=$INSTANCETEMPLATE \
-	--template="$INSTANCETEMPLATE-base" \
-	--size=0 \
-	--region=$REGION \
-	--zones="$ZONES" \
-	--initial-delay=300 \
+	--base-instance-name $INSTANCENAME \
+	--template $INSTANCETEMPLATE \
+	--size 0 \
+	--region $REGION \
+	--zones $ZONES \
+	--initial-delay 300 \
 	--quiet || echo 'blah'
 
 # turn it on
+echo "Starting gcloudrig"
 gcloudrig_start
 
+# add extra volume
+echo "Mounting games disk"
+gcloudrig_mount_games_disk
+
 # wait for 60 seconds, just in case
+echo "Waiting 60 seconds for instance to settle"
 sleep 60
 
-# get windows password
+# set windows credentials
+echo "Retrieving windows credentials"
 CREDENTIALS=$(gcloud compute reset-windows-password $INSTANCE \
 		--user $USER \
 		--zone $ZONE \
@@ -69,37 +64,22 @@ CREDENTIALS=$(gcloud compute reset-windows-password $INSTANCE \
 		--format "table[box,title='Windows Credentials'](ip_address,username,password)" \
 	)
 
-# turn it off
+# shut it down
+echo "Stopping gcloudrig"
 gcloudrig_stop
 
-# create boot disk snapshot with VSS
-gcloud compute disks snapshot $BOOTDISK --guest-flush \
-	--snapshot-names $BOOTSNAP \
-	--zone $ZONE \
-	--quiet
+# save boot image
+echo "Saving new boot image"
+gcloudrig_boot_disk_to_image
 
-# delete boot disk
-gcloud compute disks delete $BOOTDISK \
-	--zone $ZONE \
-	--quiet
+# save games snapshot
+echo "Snapshotting games disk"
+gcloudrig_games_disk_to_snapshot
 
-# create boot image from boot snapshot
-gcloud compute images create $IMAGE \
-	--source-snapshot $BOOTSNAP \
-	--guest-os-features WINDOWS \
-	--quiet
-
-# delete boot snapshot
-gcloud compute snapshots delete $BOOTSNAP \
-	--quiet
-
-# set managed instance group to use the new image
-gcloud compute instance-groups managed set-instance-template $INSTANCEGROUP \
-	--template=$INSTANCETEMPLATE \
-	--region=$REGION \
-	--quiet
-
+echo "Done!"
+echo
 echo $CREDENTIALS
+echo
 echo "Next steps: 
 	- Create a disk called '$GAMESDISK'
 	- Run \`./scale-up.sh\`
