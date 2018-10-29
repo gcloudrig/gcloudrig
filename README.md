@@ -4,7 +4,7 @@ A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.
 
 Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use [Cloud Shell](https://cloud.google.com/shell/).
 
-### Specs:
+### Specs
 -  Instance: n1-standard-8
 -  Accelerator: 1x NVidia Tesla P4 Virtual Worksatation GPU
 -  Boot: 50GB pd-ssd + windows-2016
@@ -22,7 +22,7 @@ Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use [Clo
 - Alternatively, visit [Compute Engine > VM Instances](https://console.cloud.google.com/compute/instances) to set a password and download an RDP file.  See [Creating Passwords for Windows Instances](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances) and [Connecting to Windows Instances](https://cloud.google.com/compute/docs/instances/connecting-to-instance#windows) for more info.
 
 ## Stopping your instance
-- Run `./scale-down.sh` to shutdown your instance, and prepare boot image and snapshot so your instance can start up in any zone/region next time.
+- Run `./scale-down.sh` to shutdown your instance.  Once stopped, this will take 10~20 minutes to create a boot image and disk snapshot before deleting those volumes to keep costs down.  Read *Disk maintenance* below for more info.
 
 ## (Recommended) Install a bunch of things
 - Install [GRID® drivers for virtual workstations](https://cloud.google.com/compute/docs/gpus/add-gpus#installing_gridwzxhzdk37_drivers_for_virtual_workstations)
@@ -46,6 +46,11 @@ Whenever connecting to your instance, you should always use the ZeroTier IP. Onl
 ## Travelling?
 -  Change `REGION` in `./globals.sh` to the [GCP region with the lowest ping](http://www.gcping.com/).
 -  Run `./scale-up.sh`
+
+## Disk maintenance
+Disks are automatically imaged or snapshotted whenever you run `./scale-down.sh`, which avoids the need to pay for persistent storage when the instance isn't running.  However, to get the best bang-for-buck you should do the following whenever you delete a large amount of data from your games disk:
+-  Run [`sdelete`](https://docs.microsoft.com/en-us/sysinternals/downloads/sdelete) to zero out free space on your games disk, e.g. `sdelete -z G:\`.
+-  After you've run `scale-down.sh`, check your [Snapshot](https://console.cloud.google.com/compute/snapshots) usage.  Add in the `Labels` column to this page;  you can safely delete any image labelled `gcloud:true` *except* for the one labelled `latest:true`.
 
 ## Starting over
 -  Run `./destroy.sh` and answer yes to all prompts.  This might not delete everything;  check cloud console for any remaining resources.
