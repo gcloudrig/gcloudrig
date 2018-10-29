@@ -15,10 +15,10 @@ echo "Checking/Creating managed instance group $INSTANCEGROUP..."
 	gcloud beta compute instance-groups managed create $INSTANCEGROUP \
 		--base-instance-name $INSTANCENAME \
 		--template $INSTANCETEMPLATE \
-		$FLAG_PREMPTIBLE \
 		--size 0 \
 		--region $REGION \
 		--zones $ZONES \
+		--labels "$GCRLABEL=true" \
 		--format "value(name)" \
 		--quiet
 

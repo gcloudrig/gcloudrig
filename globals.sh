@@ -3,7 +3,7 @@
 # gcloudrig/globals.sh
 
 # region and project?
-REGION="us-west2"
+REGION="australia-southeast1"
 PROJECT="gcloudrig"
 
 # instance and boot disk type?
@@ -14,16 +14,13 @@ BOOTTYPE="pd-ssd"
 ACCELERATORTYPE="nvidia-tesla-p4-vws"
 ACCELERATORCOUNT="1"
 
-# "Did he fire six shots or only five?"
-FLAG_PREMPTIBLE="" # "--preemptible"
-
 # base image?
 IMAGEBASEFAMILY="windows-2016"
 IMAGEBASEPROJECT="windows-cloud"
 
 # various resource and label names
 GAMESDISK="gcloudrig-games"
-DISKLABEL="gcloudrig"
+GCRLABEL="gcloudrig"
 IMAGE="gcloudrig"
 INSTANCEGROUP="gcloudrig-group"
 INSTANCENAME="gcloudrig"
@@ -151,6 +148,7 @@ function gcloudrig_boot_disk_to_image {
 		--source-disk $BOOTDISK \
 		--source-disk-zone $ZONE \
 		--guest-os-features WINDOWS \
+		--labels "$GCRLABEL:true" \
 		--quiet
 
 	# delete boot disk
@@ -163,7 +161,7 @@ function gcloudrig_boot_disk_to_image {
 # turn games disk into a snapshot
 function gcloudrig_games_disk_to_snapshot {
 
-	# save games snapshot
+	# save games snapshot, but don't label it yet
 	GAMESSNAP="$GAMESDISK-$(mktemp --dry-run XXXXXX | tr '[:upper:]' '[:lower:]')-snap"
 	gcloud compute disks snapshot $GAMESDISK \
 		--snapshot-names $GAMESSNAP \
@@ -172,7 +170,7 @@ function gcloudrig_games_disk_to_snapshot {
 		--quiet
 
 	# remove the "latest=true" label from any existing gcloudrig snapshots
-	for SNAP in $(gcloud compute snapshots list --format "value(name)" --filter "labels.$DISKLABEL=true"); do
+	for SNAP in $(gcloud compute snapshots list --format "value(name)" --filter "labels.$GCRLABEL=true"); do
 		LATEST=$(gcloud compute snapshots describe $SNAP --format "value(labels.latest)")
 		if [ $LATEST = "true" ]; then
 			gcloud compute snapshots remove-labels $SNAP --labels "latest"
@@ -180,7 +178,7 @@ function gcloudrig_games_disk_to_snapshot {
 	done
 
 	# add labels to the latest snapshot
-	gcloud compute snapshots add-labels $GAMESSNAP --labels "latest=true,$DISKLABEL=true"
+	gcloud compute snapshots add-labels $GAMESSNAP --labels "latest=true,$GCRLABEL=true"
 
 	# delete games disk
 	gcloud compute disks delete $GAMESDISK --zone $ZONE --quiet || \
@@ -198,8 +196,8 @@ function gcloudrig_mount_games_disk {
 	# restore games snapshot
 	# or create a new games disk
 	# or just keep going and assume a games disk already exists
-	gcloud compute disks create $GAMESDISK --zone $ZONE --source-snapshot $GAMESSNAP --quiet || \
-		gcloud compute disks create $GAMESDISK --zone $ZONE --quiet || \
+	gcloud compute disks create $GAMESDISK --zone $ZONE --source-snapshot $GAMESSNAP --quiet --labels "$GCRLABEL=true" || \
+		gcloud compute disks create $GAMESDISK --zone $ZONE --quiet --labels "$GCRLABEL=true" || \
 			echo "assuming $GAMESDISK exists, continuing..."
 
 	# attach games disk

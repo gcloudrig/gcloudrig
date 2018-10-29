@@ -21,6 +21,7 @@ gcloud beta compute instance-templates create $INSTANCETEMPLATE-base \
 	--maintenance-policy TERMINATE \
 	--no-boot-disk-auto-delete \
 	--no-restart-on-failure \
+	--labels "$GCRLABEL=true" \
 	--format "value(name)" \
 	--quiet
 
@@ -36,30 +37,35 @@ gcloud beta compute instance-groups managed create $INSTANCEGROUP \
 	--format "value(name)" \
 	--quiet
 
-# turn it on
-echo "Starting gcloudrig..."
-gcloudrig_start
+# run first-boot things if an image doesn't already exist
+if ! gcloud compute images describe $IMAGE; then
 
-# add extra volume
-echo "Mounting games disk..."
-gcloudrig_mount_games_disk
+	# turn it on
+	echo "Starting gcloudrig..."
+	gcloudrig_start
 
-# wait for 60 seconds.  
-# in future, this is where we should poll a URL or wait for a pub/sub to let us know software installation is complete.
-echo "Waiting 60 seconds for instance to settle..."
-sleep 60
+	# add extra volume
+	echo "Mounting games disk..."
+	gcloudrig_mount_games_disk
 
-# shut it down
-echo "Stopping gcloudrig..."
-gcloudrig_stop
+	# wait for 60 seconds.  
+	# in future, this is where we should poll a URL or wait for a pub/sub to let us know software installation is complete.
+	echo "Waiting 60 seconds for instance to settle..."
+	sleep 60
 
-# save boot image
-echo "Saving new boot image..."
-gcloudrig_boot_disk_to_image
+	# shut it down
+	echo "Stopping gcloudrig..."
+	gcloudrig_stop
 
-# save games snapshot
-echo "Snapshotting games disk..."
-gcloudrig_games_disk_to_snapshot
+	# save boot image
+	echo "Saving new boot image..."
+	gcloudrig_boot_disk_to_image
+
+	# save games snapshot
+	echo "Snapshotting games disk..."
+	gcloudrig_games_disk_to_snapshot
+
+fi
 
 # create actual instance template
 echo "Creating instance template $INSTANCETEMPLATE..."
@@ -71,6 +77,7 @@ gcloud beta compute instance-templates create $INSTANCETEMPLATE \
 	--maintenance-policy TERMINATE \
 	--no-boot-disk-auto-delete \
 	--no-restart-on-failure \
+	--labels "$GCRLABEL=true" \
 	--quiet
 
 # point managed instance group at new template
