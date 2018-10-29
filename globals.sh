@@ -14,6 +14,9 @@ BOOTTYPE="pd-ssd"
 ACCELERATORTYPE="nvidia-tesla-p4-vws"
 ACCELERATORCOUNT="1"
 
+# "Did he fire six shots or only five?"
+FLAG_PREMPTIBLE="" # "--preemptible"
+
 # base image?
 IMAGEBASEFAMILY="windows-2016"
 IMAGEBASEPROJECT="windows-cloud"
