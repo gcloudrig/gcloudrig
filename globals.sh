@@ -148,7 +148,7 @@ function gcloudrig_boot_disk_to_image {
 		--source-disk $BOOTDISK \
 		--source-disk-zone $ZONE \
 		--guest-os-features WINDOWS \
-		--labels "$GCRLABEL:true" \
+		--labels "$GCRLABEL=true" \
 		--quiet
 
 	# delete boot disk
