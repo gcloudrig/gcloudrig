@@ -6,9 +6,10 @@ Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use [Clo
 
 ### Specs
 -  Instance: n1-standard-8
--  Accelerator: 1x NVidia Tesla P4 Virtual Worksatation GPU
--  Boot: 50GB pd-ssd + windows-2016
+-  Accelerator: nvidia-tesla-p4-vws
+-  Boot: 50GB pd-ssd
 -  Storage: 500GB pd-standard
+-  Base image: latest from GCE's windows-2016 family
 
 *Cloud responsibly. These scripts are provided as-is, with zero support. At the very least, create a new GCP project.*
 
@@ -17,7 +18,7 @@ Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use [Clo
 - Run `./setup.sh`.  This may take 20 minutes, but is only required once.
 
 ## Connecting to your instance
-- Run `./scale-up.sh` to start your instance.  Depending on what region you're using, this can take anywhere from 60 seconds to whenever a GPU becomes available.
+- Run `./scale-up.sh` to start your instance.  Depending on what region you're using, this can take anywhere from 60 seconds to whenever a resources become available.
 - Run `./reset-windows-password.sh` to get the IP, Username and Password you'll need to RDP to your instance and start installing software.
 - Alternatively, visit [Compute Engine > VM Instances](https://console.cloud.google.com/compute/instances) to set a password and download an RDP file.  See [Creating Passwords for Windows Instances](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances) and [Connecting to Windows Instances](https://cloud.google.com/compute/docs/instances/connecting-to-instance#windows) for more info.
 
