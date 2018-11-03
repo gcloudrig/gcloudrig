@@ -11,7 +11,7 @@ source "$DIR/globals.sh"
 
 # create/recreate base instance template
 echo "Creating instance template $INSTANCETEMPLATE-base using latest $IMAGEBASEFAMILY image..."
-gcloud beta compute instance-templates delete $INSTANCETEMPLATE-base --quiet || "doesn't exist!"
+gcloud beta compute instance-templates delete $INSTANCETEMPLATE-base --quiet || echo "doesn't exist!"
 gcloud beta compute instance-templates create $INSTANCETEMPLATE-base \
 	--image-family $IMAGEBASEFAMILY \
 	--image-project $IMAGEBASEPROJECT \
@@ -28,7 +28,7 @@ gcloud beta compute instance-templates create $INSTANCETEMPLATE-base \
 # create a managed instance group that covers all zones (GPUs tend to be oversubscribed in certain zones)
 # and give it the base instance template
 echo "Creating managed instance group $INSTANCEGROUP..."
-gcloud beta compute instance-groups managed delete $INSTANCEGROUP --quiet || "doesn't exist!"
+gcloud beta compute instance-groups managed delete $INSTANCEGROUP --quiet || echo "doesn't exist!"
 gcloud beta compute instance-groups managed create $INSTANCEGROUP \
 	--base-instance-name $INSTANCENAME \
 	--template $INSTANCETEMPLATE-base \
@@ -70,7 +70,7 @@ fi
 
 # create actual instance template
 echo "Creating instance template $INSTANCETEMPLATE..."
-gcloud beta compute instance-templates create $INSTANCETEMPLATE --quiet || "dosen't exist!"
+gcloud beta compute instance-templates create $INSTANCETEMPLATE --quiet || echo "doesn't exist!"
 gcloud beta compute instance-templates create $INSTANCETEMPLATE \
 	--image $IMAGE \
 	--machine-type $INSTANCETYPE \
