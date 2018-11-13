@@ -6,7 +6,7 @@
 set -e
 
 # load globals
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 source "$DIR/globals.sh"
 
 # shut it down
