@@ -172,7 +172,7 @@ function gcloudrig_games_disk_to_snapshot {
 	# remove the "latest=true" label from any existing gcloudrig snapshots
 	for SNAP in $(gcloud compute snapshots list --format "value(name)" --filter "labels.$GCRLABEL=true"); do
 		LATEST=$(gcloud compute snapshots describe $SNAP --format "value(labels.latest)")
-		if [ $LATEST = "true" ]; then
+		if [ "$LATEST" = "true" ]; then
 			gcloud compute snapshots remove-labels $SNAP --labels "latest"
 		fi
 	done

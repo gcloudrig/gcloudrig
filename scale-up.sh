@@ -18,7 +18,6 @@ echo "Checking/Creating managed instance group $INSTANCEGROUP..."
 		--size 0 \
 		--region $REGION \
 		--zones $ZONES \
-		--labels "$GCRLABEL=true" \
 		--format "value(name)" \
 		--quiet
 

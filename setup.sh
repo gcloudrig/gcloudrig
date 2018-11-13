@@ -70,7 +70,7 @@ fi
 
 # create actual instance template
 echo "Creating instance template $INSTANCETEMPLATE..."
-gcloud beta compute instance-templates create $INSTANCETEMPLATE --quiet || echo "doesn't exist!"
+gcloud beta compute instance-templates delete $INSTANCETEMPLATE --quiet || echo "doesn't exist!"
 gcloud beta compute instance-templates create $INSTANCETEMPLATE \
 	--image $IMAGE \
 	--machine-type $INSTANCETYPE \
