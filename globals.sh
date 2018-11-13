@@ -52,6 +52,36 @@ function gcloudrig_set_zones {
 	ZONES="${ZONES:1}"
 }
 
+# Get instance name from instance group
+function gcloudrig_get_instance_from_group {
+  local region="$1"
+  local instance_group="$2"
+	gcloud compute instance-groups list-instances "$instance_group" \
+		--region "$region" \
+		--format "value(instance)" \
+		--quiet
+}
+
+# Get instance zone from instance group
+function gcloudrig_get_instance_zone_from_group {
+  local region="$1"
+  local instance_group="$2"
+	gcloud compute instance-groups list-instances "$instance_group" \
+		--region "$region" \
+		--format "value(instance.scope().segment(0))" \
+		--quiet
+}
+
+# Get bootdisk from instance
+function gcloudrig_get_bootdisk_from_instance {
+  local zone="$1"
+  local instance="$2"
+	gcloud compute instances describe "$instance" \
+		--zone "$zone" \
+		--format "value(disks[0].source.basename())" \
+		--quiet
+}
+
 # scale to 1
 function gcloudrig_start {
 
@@ -81,46 +111,22 @@ function gcloudrig_start {
 			--quiet
 	done
 
-	INSTANCE=$(gcloud compute instance-groups list-instances $INSTANCEGROUP \
-		--region $REGION \
-		--format "value(instance)" \
-		--quiet \
-	)
+	INSTANCE="$(gcloudrig_get_instance_from_group "$REGION" "$INSTANCEGROUP")"
 
-	ZONE=$(gcloud compute instance-groups list-instances $INSTANCEGROUP \
-		--region $REGION \
-		--format "value(instance.scope().segment(0))" \
-		--quiet \
-	)
+  ZONE="$(gcloudrig_get_instance_zone_from_group "$REGION" "$INSTANCEGROUP")"
 
-	BOOTDISK=$(gcloud compute instances describe $INSTANCE \
-		--zone $ZONE \
-		--format "value(disks[0].source.basename())" \
-		--quiet \
-	)
+  BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")
 
 }
 
 # scale to 0 and wait
 function gcloudrig_stop {
 
-	INSTANCE=$(gcloud compute instance-groups list-instances $INSTANCEGROUP \
-		--region $REGION \
-		--format "value(instance)" \
-		--quiet \
-	)
+	INSTANCE="$(gcloudrig_get_instance_from_group "$REGION" "$INSTANCEGROUP")"
 
-	ZONE=$(gcloud compute instance-groups list-instances $INSTANCEGROUP \
-		--region $REGION \
-		--format "value(instance.scope().segment(0))" \
-		--quiet \
-	)
+  ZONE="$(gcloudrig_get_instance_zone_from_group "$REGION" "$INSTANCEGROUP")"
 
-	BOOTDISK=$(gcloud compute instances describe $INSTANCE \
-		--zone $ZONE \
-		--format "value(disks[0].source.basename())" \
-		--quiet \
-	)
+  BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
 
 	gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
 		--size 0 \
