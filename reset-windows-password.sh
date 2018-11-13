@@ -9,17 +9,9 @@ set -e
 DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 source "$DIR/globals.sh"
 
-INSTANCE="$(gcloud compute instance-groups list-instances $INSTANCEGROUP \
-  --region $REGION \
-  --format "value(instance)" \
-  --quiet \
-)"
+INSTANCE="$(gloudrig_get_instance_from_group "$REGION" "$INSTANCEGROUP")"
 
-ZONE="$(gcloud compute instance-groups list-instances $INSTANCEGROUP \
-  --region $REGION \
-  --format "value(instance.scope().segment(0))" \
-  --quiet \
-)"
+ZONE="$(gcloudrig_get_instance_zone_from_group "$REGION" "$INSTANCEGROUP")"
 
 # set/reset windows credentials
 gcloud compute reset-windows-password "$INSTANCE" \
