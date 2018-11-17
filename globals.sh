@@ -4,7 +4,7 @@
 
 # region and project?
 REGION="australia-southeast1"
-PROJECT="gcloudrig"
+PROJECT_ID="gcloudrig"
 
 # instance and boot disk type?
 INSTANCETYPE="n1-standard-8"
@@ -29,7 +29,7 @@ INSTANCETEMPLATE="gcloudrig-template"
 # always run
 function init_globals {
 	# config
-	gcloud config set project "$PROJECT" \
+	gcloud config set project "$PROJECT_ID" \
 		--quiet
 
 	# set zones for this region
@@ -214,4 +214,5 @@ function gcloudrig_mount_games_disk {
 
 }
 
+# Fire! 
 init_globals;
