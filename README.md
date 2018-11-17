@@ -14,7 +14,7 @@ Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use [Clo
 *Cloud responsibly. These scripts are provided as-is, with zero support. At the very least, create a new GCP project.*
 
 ## Setup
-- Edit `./globals.sh` and set `REGION` and `PROJECT` variables.
+- Edit `./globals.sh` and set `REGION` and `PROJECT_ID` variables.
 - Run `./setup.sh`.  This may take 20 minutes, but is only required once.
 
 ## Connecting to your instance
