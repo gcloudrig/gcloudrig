@@ -11,7 +11,7 @@ source "$DIR/globals.sh"
 
 # check there's quota for GPUs. Free accounts can't access them
 # (this check is a quick and dirty hack)
-if gcloud compute project-info describe --project $PROJECTID |\
+if gcloud compute project-info describe --project "$PROJECT_ID" |\
    grep -C1 GPUS_ALL_REGIONS | grep -q 'limit: [1-9].0' ; then
   echo "GPU quota found"
 else
