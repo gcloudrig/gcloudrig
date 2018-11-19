@@ -9,6 +9,32 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 source "$DIR/globals.sh"
 
+# check there's quota for GPUs. Free accounts can't access them
+# (this check is a quick and dirty hack)
+if gcloud compute project-info describe --project $PROJECTID |\
+   grep -C1 GPUS_ALL_REGIONS | grep -q 'limit: [1-9].0' ; then
+  echo "GPU quota found"
+else
+  cat >&2 <<EOF
+  
+############
+#  OH NO!  #
+############
+
+no global GPU quota, stopping.
+
+Free trial accounts do *NOT* support GPUs
+See https://cloud.google.com/free/docs/frequently-asked-questions
+
+If you have a paid account you need to request an increase to the
+"GPUS_ALL_REGIONS" quota.
+See https://cloud.google.com/compute/quotas#requesting_additional_quota
+
+EOF
+
+  exit 1
+fi
+
 # create/recreate base instance template
 echo "Creating instance template $INSTANCETEMPLATE-base using latest $IMAGEBASEFAMILY image..."
 gcloud beta compute instance-templates delete "${INSTANCETEMPLATE}-base" --quiet || echo "doesn't exist!"
