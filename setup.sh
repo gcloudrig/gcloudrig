@@ -54,7 +54,8 @@ gcloud beta compute instance-templates create "${INSTANCETEMPLATE}-base" \
 # create a managed instance group that covers all zones (GPUs tend to be oversubscribed in certain zones)
 # and give it the base instance template
 echo "Creating managed instance group $INSTANCEGROUP..."
-gcloud beta compute instance-groups managed delete "$INSTANCEGROUP" --quiet || echo "doesn't exist!"
+gcloud beta compute instance-groups managed delete "$INSTANCEGROUP" \
+  --region "$REGION" --quiet || echo "doesn't exist!"
 gcloud beta compute instance-groups managed create "$INSTANCEGROUP" \
 	--base-instance-name "$INSTANCENAME" \
 	--template "${INSTANCETEMPLATE}-base" \
