@@ -22,9 +22,9 @@ IMAGEBASEPROJECT="windows-cloud"
 GAMESDISK="gcloudrig-games"
 GCRLABEL="gcloudrig"
 IMAGE="gcloudrig"
-INSTANCEGROUP="gcloudrig-group"
+INSTANCEGROUP="gcloudrig"
 INSTANCENAME="gcloudrig"
-INSTANCETEMPLATE="gcloudrig-template"
+INSTANCETEMPLATE="gcloudrig"
 
 # always run
 function init_globals {
@@ -102,6 +102,15 @@ function wait_until_instance_group_is_stable {
 	timeout 300s gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
 		--region "$REGION" \
 		--quiet
+
+	err=$?
+
+	if $err; then
+		gcloud logging read 'severity>=WARNING' \
+			--freshness 10m \
+			--format "table[box,title='-- Recent logs (10m) --'](timestamp,protoPayload.status.message)"
+		return $err
+	fi
 }
 
 # scale to 1 and wait, with retries every 5 minutes
