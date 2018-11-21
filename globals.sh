@@ -98,7 +98,7 @@ function gcloudrig_get_bootdisk_from_instance {
 
 }
 
-function wait_utill_instance_group_is_stable {
+function wait_until_instance_group_is_stable {
 
 	gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
 		--region "$REGION" \
@@ -117,7 +117,7 @@ function gcloudrig_start {
 		--quiet
 
 	# if it doesn't start in 5 minutes
-	while ! timeout 300 wait_utill_instance_group_is_stable; do
+	while ! timeout 300 wait_until_instance_group_is_stable; do
 
 		# scale it back down
 		gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
@@ -127,7 +127,7 @@ function gcloudrig_start {
 			--quiet
 
 		# wait
-		wait_utill_instance_group_is_stable
+		wait_until_instance_group_is_stable
 
 		# and back up again (chance of being spawned in a different zone)
 		gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
@@ -156,7 +156,7 @@ function gcloudrig_stop {
 		--region "$REGION" \
 		--quiet
 
-	wait_utill_instance_group_is_stable
+	wait_until_instance_group_is_stable
 
 }
 
@@ -218,8 +218,15 @@ function gcloudrig_games_disk_to_snapshot {
 	# delete games disk
 	gcloud compute disks delete "$GAMESDISK" \
 		--zone "$ZONE" \
-		--quiet \
-		|| echo "assuming $GAMESDISK is still in use, continuing..."
+		--quiet
+
+	# get all the snapshots again, *except* the one labelled latest
+	mapfile -t SNAPSHOTS < <(gcloud compute snapshots list \
+			--format "value(name)" \
+		--filter "labels.$GCRLABEL=true NOT labels.latest=true")
+
+	# delete them
+	gcloud compute snapshots delete "${SNAPSHOTS[@]}"
 
 }
 
