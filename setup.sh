@@ -26,6 +26,20 @@ gcloud beta compute instance-templates create "${INSTANCETEMPLATE}-base" \
 	--format "value(name)" \
 	--quiet
 
+# create/recreate actual instance template
+echo "Creating instance template $INSTANCETEMPLATE..."
+gcloud beta compute instance-templates delete "$INSTANCETEMPLATE" --quiet || echo
+gcloud beta compute instance-templates create "$INSTANCETEMPLATE" \
+	--image "$IMAGE" \
+	--machine-type "$INSTANCETYPE" \
+	--accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
+	--boot-disk-type "$BOOTTYPE" \
+	--maintenance-policy "TERMINATE" \
+	--no-boot-disk-auto-delete \
+	--no-restart-on-failure \
+	--labels "$GCRLABEL=true" \
+	--quiet
+
 # create a managed instance group that covers all zones (GPUs tend to be oversubscribed in certain zones)
 # and give it the base instance template
 echo "Creating managed instance group $INSTANCEGROUP..."
@@ -70,20 +84,6 @@ if ! gcloud compute images describe "$IMAGE" --format "value(name)"; then
 	gcloudrig_games_disk_to_snapshot
 
 fi
-
-# create actual instance template
-echo "Creating instance template $INSTANCETEMPLATE..."
-gcloud beta compute instance-templates delete "$INSTANCETEMPLATE" --quiet || echo
-gcloud beta compute instance-templates create "$INSTANCETEMPLATE" \
-	--image "$IMAGE" \
-	--machine-type "$INSTANCETYPE" \
-	--accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
-	--boot-disk-type "$BOOTTYPE" \
-	--maintenance-policy "TERMINATE" \
-	--no-boot-disk-auto-delete \
-	--no-restart-on-failure \
-	--labels "$GCRLABEL=true" \
-	--quiet
 
 # point managed instance group at new template
 echo "Tidying up..."
