@@ -31,7 +31,6 @@ gcloud beta compute instance-templates create "${INSTANCETEMPLATE}-base" \
 echo "Creating managed instance group $INSTANCEGROUP..."
 gcloud beta compute instance-groups managed delete "$INSTANCEGROUP" --quiet \
 	--region "$REGION" \
-	--zones "$ZONES" \
 	|| echo
 gcloud beta compute instance-groups managed create "$INSTANCEGROUP" \
 	--base-instance-name "$INSTANCENAME" \
