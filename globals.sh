@@ -99,11 +99,9 @@ function gcloudrig_get_bootdisk_from_instance {
 }
 
 function wait_until_instance_group_is_stable {
-
-	gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
+	timeout 300s gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
 		--region "$REGION" \
 		--quiet
-
 }
 
 # scale to 1 and wait, with retries every 5 minutes
@@ -117,8 +115,7 @@ function gcloudrig_start {
 		--quiet
 
 	# if it doesn't start in 5 minutes
-	export -f wait_until_instance_group_is_stable
-	while ! timeout 300s bash -c wait_until_instance_group_is_stable; do
+	while ! wait_until_instance_group_is_stable; do
 
 		# scale it back down
 		gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
