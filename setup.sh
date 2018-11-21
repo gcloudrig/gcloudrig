@@ -12,7 +12,7 @@ source "$DIR/globals.sh"
 
 # create/recreate base instance template
 echo "Creating instance template $INSTANCETEMPLATE-base using latest $IMAGEBASEFAMILY image..."
-gcloud beta compute instance-templates delete "${INSTANCETEMPLATE}-base" --quiet || echo "doesn't exist!"
+gcloud beta compute instance-templates delete "${INSTANCETEMPLATE}-base" --quiet || echo
 gcloud beta compute instance-templates create "${INSTANCETEMPLATE}-base" \
 	--image-family "$IMAGEBASEFAMILY" \
 	--image-project "$IMAGEBASEPROJECT" \
@@ -29,7 +29,7 @@ gcloud beta compute instance-templates create "${INSTANCETEMPLATE}-base" \
 # create a managed instance group that covers all zones (GPUs tend to be oversubscribed in certain zones)
 # and give it the base instance template
 echo "Creating managed instance group $INSTANCEGROUP..."
-gcloud beta compute instance-groups managed delete "$INSTANCEGROUP" --quiet || echo "doesn't exist!"
+gcloud beta compute instance-groups managed delete "$INSTANCEGROUP" --quiet || echo
 gcloud beta compute instance-groups managed create "$INSTANCEGROUP" \
 	--base-instance-name "$INSTANCENAME" \
 	--template "${INSTANCETEMPLATE}-base" \
@@ -39,8 +39,8 @@ gcloud beta compute instance-groups managed create "$INSTANCEGROUP" \
 	--format "value(name)" \
 	--quiet
 
-# run first-boot things if an image doesn't already exist
-if ! gcloud compute images describe "$IMAGE"; then
+# run first-boot things, only if an image doesn't already exist
+if ! gcloud compute images describe "$IMAGE" --format "value(name)"; then
 
 	# turn it on
 	echo "Starting gcloudrig..."
@@ -71,7 +71,7 @@ fi
 
 # create actual instance template
 echo "Creating instance template $INSTANCETEMPLATE..."
-gcloud beta compute instance-templates delete "$INSTANCETEMPLATE" --quiet || echo "doesn't exist!"
+gcloud beta compute instance-templates delete "$INSTANCETEMPLATE" --quiet || echo
 gcloud beta compute instance-templates create "$INSTANCETEMPLATE" \
 	--image "$IMAGE" \
 	--machine-type "$INSTANCETYPE" \
