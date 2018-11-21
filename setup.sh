@@ -19,7 +19,7 @@ gcloud beta compute instance-templates create "${INSTANCETEMPLATE}-base" \
 	--machine-type "$INSTANCETYPE" \
 	--accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
 	--boot-disk-type "$BOOTTYPE" \
-	--maintenance-policy TERMINATE \
+	--maintenance-policy "TERMINATE" \
 	--no-boot-disk-auto-delete \
 	--no-restart-on-failure \
 	--labels "$GCRLABEL=true" \
@@ -33,7 +33,7 @@ gcloud beta compute instance-groups managed delete "$INSTANCEGROUP" --quiet || e
 gcloud beta compute instance-groups managed create "$INSTANCEGROUP" \
 	--base-instance-name "$INSTANCENAME" \
 	--template "${INSTANCETEMPLATE}-base" \
-	--size 0 \
+	--size "0" \
 	--region "$REGION" \
 	--zones "$ZONES" \
 	--format "value(name)" \
@@ -53,7 +53,7 @@ if ! gcloud compute images describe "$IMAGE"; then
 	# wait for 60 seconds.  
 	# in future, this is where we should poll a URL or wait for a pub/sub to let us know software installation is complete.
 	echo "Waiting 60 seconds for instance to settle..."
-	sleep 60
+	sleep "60"
 
 	# shut it down
 	echo "Stopping gcloudrig..."
@@ -77,7 +77,7 @@ gcloud beta compute instance-templates create "$INSTANCETEMPLATE" \
 	--machine-type "$INSTANCETYPE" \
 	--accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
 	--boot-disk-type "$BOOTTYPE" \
-	--maintenance-policy TERMINATE \
+	--maintenance-policy "TERMINATE" \
 	--no-boot-disk-auto-delete \
 	--no-restart-on-failure \
 	--labels "$GCRLABEL=true" \
