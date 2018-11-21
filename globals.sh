@@ -28,110 +28,77 @@ INSTANCETEMPLATE="gcloudrig-template"
 
 # always run
 function init_globals {
+	
 	# config
 	gcloud config set project "$PROJECT_ID" \
 		--quiet
 
 	# set zones for this region
 	gcloudrig_set_zones
+	
 }
 
 # Populate $ZONES with any zones that has the accelerator resources we're after in the $REGION we want
 function gcloudrig_set_zones {
-	OLDIFS="$IFS"
-	IFS=";"
 	ZONES=""
-	ACCELERATORZONES=($(gcloud compute accelerator-types list --filter "name=$ACCELERATORTYPE" --format "value(zone)"))
-	for ZONEURI in $(gcloud compute regions describe "$REGION" --format="value(zones)"); do
-		local ZONE="$(basename -- "$ZONEURI")"
-		if [[ "${ACCELERATORZONES[@]}" =~ "$ZONE" ]]; then
+
+	local REGIONZONES=()
+	mapfile -d ";" -t REGIONZONES < <(gcloud compute regions describe "$REGION" \
+		--format="value(zones)")
+
+	local ACCELERATORZONES=()
+	mapfile -d ";" -t ACCELERATORZONES < <(gcloud compute accelerator-types list \
+		--filter "name=$ACCELERATORTYPE" \
+		--format "value(zone)")
+
+	for ZONEURI in "${REGIONZONES[@]}"; do
+		local ZONE=""
+		ZONE="$(basename -- "$ZONEURI")"
+		if [[ ${ACCELERATORZONES[*]} =~ $ZONE ]]; then
 			ZONES="${ZONES},${ZONE}"
 		fi;
 	done
-	IFS="$OLDIFS"
+
 	ZONES="${ZONES:1}"
 }
 
 # Get instance name from instance group
 function gcloudrig_get_instance_from_group {
-  local region="$1"
-  local instance_group="$2"
+
+	local region="$1"
+	local instance_group="$2"
 	gcloud compute instance-groups list-instances "$instance_group" \
-		--region "$region" \
-		--format "value(instance)" \
-		--quiet
+	--region "$region" \
+	--format "value(instance)" \
+	--quiet
+
 }
 
 # Get instance zone from instance group
 function gcloudrig_get_instance_zone_from_group {
-  local region="$1"
-  local instance_group="$2"
+
+	local region="$1"
+	local instance_group="$2"
 	gcloud compute instance-groups list-instances "$instance_group" \
-		--region "$region" \
-		--format "value(instance.scope().segment(0))" \
-		--quiet
+	--region "$region" \
+	--format "value(instance.scope().segment(0))" \
+	--quiet
+
 }
 
 # Get bootdisk from instance
 function gcloudrig_get_bootdisk_from_instance {
-  local zone="$1"
-  local instance="$2"
+
+	local zone="$1"
+	local instance="$2"
 	gcloud compute instances describe "$instance" \
 		--zone "$zone" \
 		--format "value(disks[0].source.basename())" \
 		--quiet
-}
-
-# scale to 1
-function gcloudrig_start {
-
-	# scale to 1
-	gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
-		--size 1 \
-		--region "$REGION" \
-		--format "value(currentActions)" \
-		--quiet
-
-	# wait
-	gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" --region "$REGION" --quiet
-
-	# wait 5m for the group to be stable, then scale down/up and take a gamble at another zone
-	# this seems to increase the chance of hitting a zone that has free capacity, when one is oversubscribed or down for maintenance.
-	while ! timeout 300 gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" --region "$REGION" --quiet; do
-		gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
-			--size 0 \
-			--region "$REGION" \
-			--format "value(currentActions)" \
-			--quiet
-		gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" --region "$REGION" --quiet
-		gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
-			--size 1 \
-			--region "$REGION" \
-			--format "value(currentActions)" \
-			--quiet
-	done
-
-	INSTANCE="$(gcloudrig_get_instance_from_group "$REGION" "$INSTANCEGROUP")"
-
-  ZONE="$(gcloudrig_get_instance_zone_from_group "$REGION" "$INSTANCEGROUP")"
-
-  BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")
 
 }
 
-# scale to 0 and wait
-function gcloudrig_stop {
-
-	INSTANCE="$(gcloudrig_get_instance_from_group "$REGION" "$INSTANCEGROUP")"
-
-  ZONE="$(gcloudrig_get_instance_zone_from_group "$REGION" "$INSTANCEGROUP")"
-
-  BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
-
-	gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
-		--size 0 \
-		--region "$REGION" \
-		--quiet
+function wait_utill_instance_group_is_stable {
 
 	gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
 		--region "$REGION" \
@@ -139,6 +106,59 @@ function gcloudrig_stop {
 
 }
 
+# scale to 1 and wait, with retries every 5 minutes
+function gcloudrig_start {
+
+	# scale to 1
+	gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
+		--size "1" \
+		--region "$REGION" \
+		--format "value(currentActions)" \
+		--quiet
+
+	# if it doesn't start in 5 minutes
+	while ! timeout 300 wait_utill_instance_group_is_stable; do
+
+		# scale it back down
+		gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
+			--size "0" \
+			--region "$REGION" \
+			--format "value(currentActions)" \
+			--quiet
+
+		# wait
+		wait_utill_instance_group_is_stable
+
+		# and back up again (chance of being spawned in a different zone)
+		gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
+			--size "1" \
+			--region "$REGION" \
+			--format "value(currentActions)" \
+			--quiet
+	done
+
+	# we have an instance!
+	INSTANCE="$(gcloudrig_get_instance_from_group "$REGION" "$INSTANCEGROUP")"
+	ZONE="$(gcloudrig_get_instance_zone_from_group "$REGION" "$INSTANCEGROUP")"
+	BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
+
+}
+
+# scale to 0 and wait
+function gcloudrig_stop {
+
+	INSTANCE="$(gcloudrig_get_instance_from_group "$REGION" "$INSTANCEGROUP")"
+	ZONE="$(gcloudrig_get_instance_zone_from_group "$REGION" "$INSTANCEGROUP")"
+	BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
+
+	gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
+		--size "0" \
+		--region "$REGION" \
+		--quiet
+
+	wait_utill_instance_group_is_stable
+
+}
 
 # turn boot disk into an image
 function gcloudrig_boot_disk_to_image {
@@ -146,8 +166,8 @@ function gcloudrig_boot_disk_to_image {
 	echo "Creating boot image, this may take some time..."
 
 	# delete existing boot image
-	gcloud compute images delete "$IMAGE" --quiet || \
-		echo "assuming $IMAGE doesn't exist, continuing..."
+	gcloud compute images delete "$IMAGE" --quiet \
+		|| echo "assuming $IMAGE doesn't exist, continuing..."
 
 	# create boot image from boot disk
 	gcloud compute images create "$IMAGE" \
@@ -175,20 +195,31 @@ function gcloudrig_games_disk_to_snapshot {
 		--guest-flush \
 		--quiet
 
-	# remove the "latest=true" label from any existing gcloudrig snapshots
-	for SNAP in $(gcloud compute snapshots list --format "value(name)" --filter "labels.$GCRLABEL=true"); do
-		LATEST="$(gcloud compute snapshots describe $SNAP --format "value(labels.latest)")"
+	# find existing snapshots
+	local SNAPSHOTS=()
+	mapfile -t SNAPSHOTS < <(gcloud compute snapshots list \
+			--format "value(name)" \
+		--filter "labels.$GCRLABEL=true")
+
+	# remove the "latest=true" label from all existing gcloudrig snapshots
+	for SNAP in "${SNAPSHOTS[@]}"; do
+		LATEST="$(gcloud compute snapshots describe "$SNAP" \
+			--format "value(labels.latest)")"
 		if [ "$LATEST" = "true" ]; then
-			gcloud compute snapshots remove-labels "$SNAP" --labels "latest"
+			gcloud compute snapshots remove-labels "$SNAP" \
+				--labels "latest"
 		fi
 	done
 
 	# add labels to the latest snapshot
-	gcloud compute snapshots add-labels "$GAMESSNAP" --labels "latest=true,$GCRLABEL=true"
+	gcloud compute snapshots add-labels "$GAMESSNAP" \
+		--labels "latest=true,$GCRLABEL=true"
 
 	# delete games disk
-	gcloud compute disks delete "$GAMESDISK" --zone "$ZONE" --quiet || \
-		echo "assuming $GAMESDISK is still in use, continuing..."
+	gcloud compute disks delete "$GAMESDISK" \
+		--zone "$ZONE" \
+		--quiet \
+		|| echo "assuming $GAMESDISK is still in use, continuing..."
 
 }
 
@@ -197,20 +228,29 @@ function gcloudrig_games_disk_to_snapshot {
 function gcloudrig_mount_games_disk {
 
 	# get latest games snapshot
-	GAMESSNAP="$(gcloud compute snapshots list --format "value(name)" --filter "labels.gcloudrig=true labels.latest=true")"
+	GAMESSNAP="$(gcloud compute snapshots list \
+		--format "value(name)" \
+		--filter "labels.gcloudrig=true labels.latest=true")"
 
 	# restore games snapshot
 	# or create a new games disk
 	# or just keep going and assume a games disk already exists
-	gcloud compute disks create "$GAMESDISK" --zone "$ZONE" --source-snapshot "$GAMESSNAP" --quiet --labels "$GCRLABEL=true" || \
-		gcloud compute disks create "$GAMESDISK" --zone "$ZONE" --quiet --labels "$GCRLABEL=true" || \
-			echo "assuming $GAMESDISK exists, continuing..."
+	gcloud compute disks create "$GAMESDISK" \
+		--zone "$ZONE" \
+		--source-snapshot "$GAMESSNAP" \
+		--quiet \
+		--labels "$GCRLABEL=true" \
+		|| gcloud compute disks create "$GAMESDISK" \
+			--zone "$ZONE" \
+			--quiet \
+			--labels "$GCRLABEL=true" \
+			|| echo "assuming $GAMESDISK exists, continuing..."
 
 	# attach games disk
 	gcloud compute instances attach-disk "$INSTANCE" \
-		--disk "$GAMESDISK" \
-		--zone "$ZONE" \
-		--quiet
+	--disk "$GAMESDISK" \
+	--zone "$ZONE" \
+	--quiet
 
 }
 

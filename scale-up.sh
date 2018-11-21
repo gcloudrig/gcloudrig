@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
-# gcloudrig/scale-up.sh
-
 # exit on error
 set -e
 
-# load globals
+# full path to script dir
 DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+
+# load globals 
+# shellcheck source=globals.sh
 source "$DIR/globals.sh"
 
 # create managed instance group e.g. if this is a new region
