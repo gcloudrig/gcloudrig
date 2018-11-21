@@ -117,7 +117,8 @@ function gcloudrig_start {
 		--quiet
 
 	# if it doesn't start in 5 minutes
-	while ! timeout 300 wait_until_instance_group_is_stable; do
+	export -f wait_until_instance_group_is_stable
+	while ! timeout 300s bash -c wait_until_instance_group_is_stable; do
 
 		# scale it back down
 		gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
