@@ -58,6 +58,19 @@ gcloud beta compute instance-groups managed create "$INSTANCEGROUP" \
 # run first-boot things, only if an image doesn't already exist
 if ! gcloud compute images describe "$IMAGE" --format "value(name)"; then
 
+  echo "Creating GCS bucket $GCSBUCKET/ to store install script..."
+  gsutil mb -p "$PROJECT_ID" -c regional -l "$REGION"  "$GCSBUCKET/" || echo "already exists?"
+
+  echo "Copying software install script to GCS..."
+  gsutil cp "$DIR/gcloudrig.psm1" "$GCSBUCKET/"
+
+  # replace any '#' chars, messes with the sed command
+  WINDOWS_PASS="$(generate_windows_password | tr '#' '^')"
+  echo "Enabling software installer..." 
+  gcloud compute project-info add-metadata \
+    --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/windows-setup.ps1.template" | \
+    sed -e "s#@URL@#$GCSBUCKET/gcloudrig.psm1#;s#@PASSWORD@#$WINDOWS_PASS#")
+
 	# turn it on
 	echo "Starting gcloudrig..."
 	gcloudrig_start
@@ -68,8 +81,22 @@ if ! gcloud compute images describe "$IMAGE" --format "value(name)"; then
 
 	# wait for 60 seconds.  
 	# in future, this is where we should poll a URL or wait for a pub/sub to let us know software installation is complete.
-	echo "Waiting 60 seconds for instance to settle..."
-	sleep "60"
+  logURL="https://console.cloud.google.com/logs/viewer?authuser=1&project=${PROJECT_ID}&resource=global&logName=projects%2F${PROJECT_ID}%2Flogs%2Fgcloudrig-install"
+  echo "Software install will take a while. Watch the logs at:"
+  echo "$logURL"
+  echo "The last line will be 'All done!'"
+  echo
+  echo "To connect with RDP"
+  echo "  username: gcloudrig"
+  echo "  password: $WINDOWS_PASS"
+  read -p "Press enter when software install is complete..."
+
+  echo "Disabling software installer..."
+  gcloud compute project-info remove-metadata \
+    --keys=windows-startup-script-ps1
+
+  echo "Removing software install script from GCS..."
+  gsutil rm "$GCSBUCKET/gcloudrig.psm1"
 
 	# shut it down
 	echo "Stopping gcloudrig..."

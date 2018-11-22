@@ -25,6 +25,7 @@ IMAGE="gcloudrig"
 INSTANCEGROUP="gcloudrig"
 INSTANCENAME="gcloudrig"
 INSTANCETEMPLATE="gcloudrig"
+GCSBUCKET="gs://$PROJECT_ID"
 
 # always run
 function init_globals {
@@ -266,6 +267,12 @@ function gcloudrig_mount_games_disk {
 	--zone "$ZONE" \
 	--quiet
 
+}
+
+# generate a random password, with minimal dependencies
+# this is probably a bad idea
+function generate_windows_password {
+  dd if=/dev/urandom bs=1 count=14 status=none | base64
 }
 
 # Fire! 
