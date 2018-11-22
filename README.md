@@ -2,7 +2,12 @@
 
 A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.com/sdk/gcloud/) to create and maintain a cloud gaming instance, on the cheap.
 
-Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use [Cloud Shell](https://cloud.google.com/shell/).
+Requires `bash`, `gcloud` and `python2.7.x` (required by `gcloud`); or just use [Cloud Shell](https://cloud.google.com/shell/).
+
+## Prerequisites
+-  bash
+-  python 2.7.x
+-  [gcloud sdk](https://cloud.google.com/sdk/install)
 
 ### Specs
 -  Instance: n1-standard-8
@@ -14,8 +19,16 @@ Requires `bash`, `gcloud` and `python2` (required by `gcloud`); or just use [Clo
 *Cloud responsibly. These scripts are provided as-is, with zero support. At the very least, create a new GCP project.*
 
 ## Setup
-- Edit `./globals.sh` and set `REGION` and `PROJECT_ID` variables.
-- Run `./setup.sh`.  This may take 20 minutes, but is only required once.
+-  [Start Cloud Shell in a new project](https://cloud.google.com/shell/docs/starting-cloud-shell)
+    -  Alternatively, run `gcloud init` to authenticate and create a new project.
+-  [Ensure billing is enabled](https://cloud.google.com/billing/docs/how-to/modify-project) for this new project.
+-  Clone this repository
+       $ git clone "https://github.com/putty182/gcloudrig"
+-  Run `setup.sh`
+        $ cd "gcloudrig"
+        $ ./setup.sh
+
+
 
 ## Connecting to your instance
 - Run `./scale-up.sh` to start your instance.  Depending on what region you're using, this can take anywhere from 60 seconds to whenever a resources become available.

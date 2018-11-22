@@ -6,9 +6,10 @@ set -e
 # full path to script dir
 DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
-# load globals 
+# load globals
 # shellcheck source=globals.sh
 source "$DIR/globals.sh"
+init_globals;
 
 INSTANCE="$(gloudrig_get_instance_from_group "$REGION" "$INSTANCEGROUP")"
 
