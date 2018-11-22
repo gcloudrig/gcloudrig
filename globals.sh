@@ -115,7 +115,7 @@ function gcloudrig_start {
 
   ZONE="$(gcloudrig_get_instance_zone_from_group "$REGION" "$INSTANCEGROUP")"
 
-  BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")
+  BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
 
 }
 
