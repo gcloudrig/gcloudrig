@@ -3,6 +3,8 @@
 # exit on error
 set -e
 
+set -x
+
 # full path to script dir
 DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
