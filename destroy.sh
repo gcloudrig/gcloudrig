@@ -15,8 +15,21 @@ init_globals;
 gcloudrig_stop || echo -n
 
 # delete managed instance group
-gcloud compute instance-groups managed delete "$INSTANCEGROUP" --region "$REGION" --quiet || echo -n
+gcloud compute instance-groups managed delete "$INSTANCEGROUP" --region "$REGION" || echo -n
 
 # delete instance templates
-gcloud compute instance-templates delete "$INSTANCETEMPLATE-base" --quiet || echo -n
-gcloud compute instance-templates delete "$INSTANCETEMPLATE" --quiet || echo -n
+gcloud compute instance-templates delete "$INSTANCETEMPLATE" || echo -n
+
+# delete image
+gcloud compute images delete "$IMAGE" || echo -n
+
+# delete snapshots
+SNAPSHOTS=()
+mapfile -t SNAPSHOTS < <(gcloud compute snapshots list \
+  --format "value(name)" \
+--filter "labels.$GCRLABEL=true")
+
+# remove the "latest=true" label from all existing gcloudrig snapshots
+for SNAP in "${SNAPSHOTS[@]}"; do
+  gcloud compute snapshots delete "$SNAP"
+done
