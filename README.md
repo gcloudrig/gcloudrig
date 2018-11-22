@@ -19,28 +19,26 @@ Requires `bash`, `gcloud` and `python2.7.x` (required by `gcloud`); or just use 
 *Cloud responsibly. These scripts are provided as-is, with zero support. At the very least, create a new GCP project.*
 
 ## One-time setup
--  [Start Cloud Shell in a new project](https://cloud.google.com/shell/docs/starting-cloud-shell)
-
-   Alternatively, run `gcloud init`
-
--  [Ensure billing is enabled](https://cloud.google.com/billing/docs/how-to/modify-project) for this new project.
-
+-  [Start Cloud Shell in a new project](https://cloud.google.com/shell/docs/starting-cloud-shell), and/or run `gcloud init` locally
+-  [Ensure billing is enabled](https://cloud.google.com/billing/docs/how-to/modify-project)
 -  Clone this repository
-       $ git clone "https://github.com/putty182/gcloudrig"
-
+   ````
+   $ git clone "https://github.com/putty182/gcloudrig"
+   ````
 -  Run `setup.sh`
-        $ cd "gcloudrig"
-        $ ./setup.sh
-
+   ````
+   $ cd "gcloudrig"
+   $ ./setup.sh
+   ````
 -  If anything goes wrong during setup, start over with these commands
-        $ ./destroy.sh
-        $ gcloud init
-        $ ./setup.sh
-
+   ````
+   $ ./destroy.sh
+   $ gcloud init
+   $ ./setup.sh
+   ````
 
 ## Starting your rig
 - Run `./scale-up.sh` to start your instance.
-
 - Run `./reset-windows-password.sh` to get the IP, Username and Password you'll need to RDP to your instance and start installing software.
 
   Alternatively, visit [Compute Engine > VM Instances](https://console.cloud.google.com/compute/instances) to set a password and download an RDP file.  See [Creating Passwords for Windows Instances](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances) and [Connecting to Windows Instances](https://cloud.google.com/compute/docs/instances/connecting-to-instance#windows) for more info.
@@ -56,27 +54,16 @@ Once you've started your rig, it will be empty.  There are no pre-installed soft
 Follow these steps to get a stable "gaming" setup:
 
 - Install [GRID® drivers for virtual workstations](https://cloud.google.com/compute/docs/gpus/add-gpus#installing_gridwzxhzdk37_drivers_for_virtual_workstations)
-
 - Install [Virtual Audio Cable](https://www.vb-audio.com/Cable/)
-
 - Setup [Autologon](https://docs.microsoft.com/en-au/sysinternals/downloads/autologon) to avoid a login screen at boot
-
 - Install [ZeroTier](https://zerotier.com/), create/join a network, and set it to run on boot by right-clicking it's icon in the system tray
-
 - Install [TightVNC Server](https://www.tightvnc.com/) and lock it down to zerotier's IP range (e.g. `allow 10.147.17.0-10.147.17.255`; `deny 0.0.0.0-255.255.255`).  Test a VNC connection using your instance's ZeroTier IP now.
-
 - Reboot to finish GPU driver installation.
-
 - Login with TightVNC, set display to "Show only on Monitor 2" and give it an appropriate screen resolution.  This will disable the primary 640x480 virtual screen, which can't be resized and gives Parsec headaches when games try to launch on it.
-
 - Attempt to change the volume; Windows should prompt that the Windows Sound service isn't running.  Start it.  Alternatviely, run `services.msc` and change it's startup options there.
-
 - Install [Parsec](https://parsecgaming.com/), save login details, and set it to run on boot by right-clicking it's icon in the system tray
-
 - Install game clients (e.g. Steam) and a game or two.
-
 - (Optional) Signup at [Duck DNS](https://www.duckdns.org/) and create a hostname for the private ZeroTier IP (NOT the public one).  If you really want a hostname for the dynamic public IP as well, create a secondary hostname and pick your favourite set of installation instructions.
-
 - (Optional) Edit `default-allow-rdp` firewall rule in Cloud Console, change it's `Targets` to `Specified target tags` and add a target tag of `rdp-server`, so only instances with the network tag `rdp-server` have public RDP ports.  If you really need to RDP into the public IP address, add this network tag to a running instance.
 
 ## Notes
