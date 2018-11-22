@@ -3,6 +3,7 @@
 # region and project
 REGION=""
 PROJECT_ID=""
+ZONES=""
 
 # instance and boot disk type?
 INSTANCETYPE="n1-standard-8"
@@ -25,39 +26,32 @@ INSTANCENAME="gcloudrig"
 INSTANCETEMPLATE="gcloudrig"
 CONFIGURATION="gcloudrig"
 
-# sensible globals
+# ensures sensible globals are set
 function init_globals {
 
   PROJECT_ID="$(gcloud config get-value core/project --quiet)"
   REGION="$(gcloud config get-value compute/region --quiet)"
 
-  # if we don't have a project id or region, bail and ask user to run "gcloud init"
-
-  if [ -z "$PROJECT_ID" ]; then
-    echo "Unable to read config for 'core/project'!"
-    echo
-    echo "Please run 'gcloud init' followed by './setup.sh' to re-initialize the existing configuration, [$CONFIGURATION]."
+  # if we don't have a project id or region, bail and ask user to run setup
+  if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
+  	[ -z "$PROJECT_ID" ] && echo "Missing config 'core/project'"
+  	[ -z "$REGION" ] && echo "Missing config 'compute/region'"
+    echo "Please run './setup.sh' or 'gcloud init' to re-initialize the existing configuration, [$CONFIGURATION]."
     exit 1
-  fi
-
-  if [ -z "$REGION" ]; then
-    echo "Unable to read config for 'compute/region'!"
-    echo
-    echo "Please run './setup.sh' to re-initialize the existing configuration, [$CONFIGURATION]."
   fi
 
   # set zones for this region
   gcloudrig_set_zones
 }
 
-# same as init_globals, but run during setup
+# ensures sensible globals are set; same as init_globals, but runs gcloud init if they're not set
 function init_setup {
   # create/recreate configuration
   echo "Creating configuration '$CONFIGURATION'"
   gcloud config configurations create $CONFIGURATION --quiet &>/dev/null || echo -n
   gcloud config configurations activate $CONFIGURATION --quiet
 
-  # check if default project is set;  if not, run 'gcloud init'
+  # check if default project is set; if not, run 'gcloud init'
   PROJECT_ID="$(gcloud config get-value core/project --quiet)"
   if [ -z "$PROJECT_ID" ]; then
     gcloud init
@@ -66,7 +60,7 @@ function init_setup {
 
   # check if compute api is enabled, if not enable it
   COMPUTEAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=compute.googleapis.com" --quiet)
-  if [ $COMPUTEAPI != "compute.googleapis.com" ]; then
+  if [ "$COMPUTEAPI" != "compute.googleapis.com" ]; then
     echo "Enabling Compute API..."
     gcloud services enable compute.googleapis.com
   fi
@@ -75,14 +69,6 @@ function init_setup {
   REGION="$(gcloud config get-value compute/region --quiet)"
   if  [ -z "$REGION" ]; then
     gcloud init --skip-diagnostics
-  else
-    echo "Re-run 'gcloud init' to select the default zone and region?"
-    select yn in "Yes" "No"; do
-        case $yn in
-            Yes ) gcloud init --skip-diagnostics; break;;
-            No ) echo "Skipping 'gcloud init' re-run!"; break;;
-        esac
-    done
   fi
 
   # now set the zones
@@ -253,7 +239,7 @@ function gcloudrig_games_disk_to_snapshot {
     --snapshot-names "$GAMESSNAP" \
     --zone "$ZONE" \
     --guest-flush \
-    --quiet
+    --quiet &>/dev/null
 
   # find existing snapshots
   local SNAPSHOTS=()
@@ -292,12 +278,7 @@ function gcloudrig_games_disk_to_snapshot {
 
 }
 
-# mounts games disk, restoring from latest snapshot or creating a new one if nessessary
-# no size/disk type specifified; gcloud will default to 500GB pd-standard when creating
-function gcloudrig_mount_games_disk {
-
-  echo "Mounting games disk..."
-
+function gcloudrig_restore_games_disk {
   # get latest games snapshot
   GAMESSNAP="$(gcloud compute snapshots list \
     --format "value(name)" \
@@ -315,7 +296,17 @@ function gcloudrig_mount_games_disk {
       --zone "$ZONE" \
       --quiet \
       --labels "$GCRLABEL=true" &>/dev/null \
-      || echo "assuming $GAMESDISK exists, continuing..."
+      || echo
+
+}
+
+# mounts games disk, restoring from latest snapshot or creating a new one if nessessary
+# no size/disk type specifified; gcloud will default to 500GB pd-standard when creating
+function gcloudrig_mount_games_disk {
+
+  gcloudrig_restore_games_disk
+
+  echo "Mounting games disk..."
 
   # attach games disk
   gcloud compute instances attach-disk "$INSTANCE" \
