@@ -20,7 +20,7 @@ IMAGEBASEPROJECT="windows-cloud"
 GAMESDISK="gcloudrig-games"
 GCRLABEL="gcloudrig"
 IMAGE="gcloudrig"
-INSTANCEGROUP="gcloudrig"
+INSTANCEGROUP="gcloudrig-group"
 INSTANCENAME="gcloudrig"
 INSTANCETEMPLATE="gcloudrig"
 CONFIGURATION="gcloudrig"
@@ -87,6 +87,9 @@ function init_setup {
 
   # now set the zones
   gcloudrig_set_zones;
+
+  # but unset the default one
+  gcloud config unset compute/zone;
 }
 
 # Populate $ZONES with any zones that has the accelerator resources we're after in the $REGION we want
@@ -118,6 +121,7 @@ function gcloudrig_get_instance_from_group {
   local instance_group="$1"
   gcloud compute instance-groups list-instances "$instance_group" \
   --format "value(instance)" \
+  --region "$REGION" \
   --quiet
 
 }
@@ -127,6 +131,7 @@ function gcloudrig_get_instance_zone_from_group {
   local instance_group="$1"
   gcloud compute instance-groups list-instances "$instance_group" \
   --format "value(instance.scope().segment(0))" \
+  --region "$REGION" \
   --quiet
 
 }
@@ -144,6 +149,7 @@ function gcloudrig_get_bootdisk_from_instance {
 
 function wait_until_instance_group_is_stable {
   timeout 120s gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
+  	--region "$REGION" \
     --quiet
 
   err=$?
@@ -164,6 +170,7 @@ function gcloudrig_start {
   gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
     --size "1" \
     --format "value(currentActions)" \
+    --region "$REGION" \
     --quiet &>/dev/null
 
   # if it doesn't start in 5 minutes
@@ -173,6 +180,7 @@ function gcloudrig_start {
     gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
       --size "0" \
       --format "value(currentActions)" \
+      --region "$REGION" \
       --quiet &>/dev/null
 
     # wait
@@ -182,6 +190,7 @@ function gcloudrig_start {
     gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
       --size "1" \
       --format "value(currentActions)" \
+      --region "$REGION" \
       --quiet &>/dev/null
   done
 
@@ -203,6 +212,7 @@ function gcloudrig_stop {
   gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
     --size "0" \
     --format "value(currentActions)" \
+    --region "$REGION" \
     --quiet &>/dev/null
 
   wait_until_instance_group_is_stable
