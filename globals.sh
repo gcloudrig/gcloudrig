@@ -273,7 +273,7 @@ function gcloudrig_games_disk_to_snapshot {
 
   # delete them
   for SNAP in "${SNAPSHOTS[@]}"; do
-    gcloud compute snapshots delete --quiet
+    gcloud compute snapshots delete "$SNAP" --quiet
   done
 
 }
