@@ -1,15 +1,22 @@
 gcloud logging write gcloudrig-install "windows-setup.ps1 started"
 
-# download installer module from GCS
-& gsutil cp "@URL@" "$Home\Desktop\gcloudrig.psm1" | Out-File "c:\gcloudrig-setup.txt" -Append
-if (Test-Path "$Home\Desktop\gcloudrig.psm1") {
-  New-Item -ItemType directory -Path "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig" -Force
-  Copy-Item "$Home\Desktop\gcloudrig.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig\" -Force
+if (Test-Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk") {
+  gcloud logging write gcloudrig-install ".startup.lnk detected, exiting GCE startup script"
 
-  Import-Module gCloudRig
-  New-gCloudRigInstall -Password "@PASSWORD@"
 } else {
-  gcloud logging write gcloudrig-install "download of gcloudrig.psm1 failed!"
+
+  gcloud logging write gcloudrig-install ".download gcloudrig.psm1 from GCS"
+  # download installer module from GCS
+  & gsutil cp "@URL@" "$Home\Desktop\gcloudrig.psm1" | Out-File "c:\gcloudrig-setup.txt" -Append
+  if (Test-Path "$Home\Desktop\gcloudrig.psm1") {
+    New-Item -ItemType directory -Path "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig" -Force
+    Copy-Item "$Home\Desktop\gcloudrig.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig\" -Force
+
+    Import-Module gCloudRig
+    New-gCloudRigInstall -Password "@PASSWORD@"
+  } else {
+    gcloud logging write gcloudrig-install --severity ERROR ".download of gcloudrig.psm1 failed!"
+  }
 }
 
 gcloud logging write gcloudrig-install "windows-setup.ps1 finished"
