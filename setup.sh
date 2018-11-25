@@ -19,17 +19,20 @@ if ! gcloud compute images describe "$IMAGE" --format "value(name)" &>/dev/null;
   # create one from the base image
   gcloud compute images create "$IMAGE" \
     --source-image-family "$IMAGEBASEFAMILY" \
-    --source-image-project "$IMAGEBASEPROJECT"
+    --source-image-project "$IMAGEBASEPROJECT" \
+    --guest-os-features "WINDOWS" \
+    --family "$IMAGEFAMILY" \
+    --labels "$GCRLABEL=true"
 
 fi
 
 echo "Deleting existing instance group and template"
-gcloud beta compute instance-groups managed delete "$INSTANCEGROUP" --region "$REGION" --quiet &>/dev/null || echo
-gcloud beta compute instance-templates delete "$INSTANCETEMPLATE" --quiet &>/dev/null || echo
+gcloud compute instance-groups managed delete "$INSTANCEGROUP" --region "$REGION" --quiet &>/dev/null || echo
+gcloud compute instance-templates delete "$INSTANCETEMPLATE" --quiet &>/dev/null || echo
 
 # create/recreate actual instance template
 echo "Creating instance template $INSTANCETEMPLATE..."
-gcloud beta compute instance-templates create "$INSTANCETEMPLATE" \
+gcloud compute instance-templates create "$INSTANCETEMPLATE" \
   --image "$IMAGE" \
   --machine-type "$INSTANCETYPE" \
   --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
@@ -43,7 +46,7 @@ gcloud beta compute instance-templates create "$INSTANCETEMPLATE" \
 # create a managed instance group that covers all zones (GPUs tend to be oversubscribed in certain zones)
 # and give it the base instance template
 echo "Creating managed instance group '$INSTANCEGROUP'..."
-gcloud beta compute instance-groups managed create "$INSTANCEGROUP" \
+gcloud compute instance-groups managed create "$INSTANCEGROUP" \
   --region "$REGION" \
   --base-instance-name "$INSTANCENAME" \
   --template "$INSTANCETEMPLATE" \
