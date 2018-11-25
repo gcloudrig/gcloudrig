@@ -195,7 +195,7 @@ function gcloudrig_delete_instance_group {
 
 function gcloudrig_delete_instance_template {
   # if the instance template already exists, delete it
-  if ! [ -z "$(gcloud compute instance-templates list --filter "name=$INSTANCETEMPLATE region:($REGION)" --format "value(name)" --quiet)" ]; then
+  if ! [ -z "$(gcloud compute instance-templates list --filter "name=$INSTANCETEMPLATE" --format "value(name)" --quiet)" ]; then
     gcloud compute instance-templates delete "$INSTANCETEMPLATE" \
       --quiet
   fi
