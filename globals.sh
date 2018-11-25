@@ -13,13 +13,13 @@ IMAGEBASEFAMILY="windows-2016"
 IMAGEBASEPROJECT="windows-cloud"
 
 # various resource and label names
-GAMESDISK="gcloudrig-games"
-GCRLABEL="gcloudrig"
-IMAGEFAMILY="gcloudrig"
-INSTANCEGROUP="gcloudrig-group"
-INSTANCENAME="gcloudrig"
-INSTANCETEMPLATE="gcloudrig-template"
-CONFIGURATION="gcloudrig"
+GAMESDISK="gcloudrig-test-games"
+GCRLABEL="gcloudrig-test"
+IMAGEFAMILY="gcloudrig-test"
+INSTANCEGROUP="gcloudrig-test-group"
+INSTANCENAME="gcloudrig-test"
+INSTANCETEMPLATE="gcloudrig-test-template"
+CONFIGURATION="gcloudrig-test"
 
 # override only if nessessary
 REGION=""
@@ -32,8 +32,7 @@ ZONES=""
 # INIT #
 ########
 
-# ensures sensible globals are set
-function init_globals {
+function init {
 
   if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID="$(gcloud config get-value core/project --quiet)"
@@ -51,15 +50,16 @@ function init_globals {
     exit 1
   fi
 
-  gcloudrig_set_vars
+  init_common
 }
 
-# ensures sensible globals are set; same as init_globals, but runs gcloud init if they're not set
 function init_setup {
-  # create/recreate configuration
-  echo "Creating configuration '$CONFIGURATION'"
-  gcloud config configurations create $CONFIGURATION --quiet &>/dev/null || echo -n
-  gcloud config configurations activate $CONFIGURATION --quiet &>/dev/null
+
+  if [ -z "$(gcloud config configurations list --filter "name=$CONFIGURATION" --format "value(name)")" ]; then
+    gcloud config configurations create $CONFIGURATION --quiet
+  fi
+
+  gcloud config configurations activate $CONFIGURATION --quiet
 
   if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID="$(gcloud config get-value core/project --quiet)"
@@ -73,6 +73,7 @@ function init_setup {
   if [ -z "$PROJECT_ID" ]; then
     gcloud init
     PROJECT_ID="$(gcloud config get-value core/project --quiet)"
+    REGION="$(gcloud config get-value compute/region --quiet)"
   fi
 
   # check if compute api is enabled, if not enable it
@@ -88,18 +89,10 @@ function init_setup {
   fi
 
   # now set the zones
-  gcloudrig_set_vars;
+  init_common;
 }
 
-
-
-###########
-# SETTERS #
-###########
-
-# Populate $ZONES with any zones that has the accelerator 
-# resources in the $REGION we're after
-function gcloudrig_set_vars {
+function init_common {
   local groupsize=0
   local regionzones=()
   local acceleratorzones=()
@@ -126,10 +119,10 @@ function gcloudrig_set_vars {
   ZONES="${ZONES:1}"
 
   # get the number of instances currently running
-  groupsize=$(gcloud compute instance-groups describe "$INSTANCEGROUP" --format "value(size)" --region "$REGION" --quiet || echo "0")
+  groupsize=$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(size)" --quiet || echo "0")
 
   # if an instance is running, expose some more vars
-  if [ "$groupsize" -gt "0" ]; then
+  if ! [ -z "$groupsize" ] && [ "$groupsize" -gt "0" ]; then
     INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
     ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
     BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
@@ -187,9 +180,74 @@ function gcloudrig_get_bootimage {
 
 
 
-############
-# COMMANDS #
-############
+#################
+# DELETE/CREATE #
+#################
+
+function gcloudrig_delete_instance_group {
+  # if the instance group already exists, delete it
+  if ! [ -z "$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(name)" --quiet)" ]; then
+    gcloud compute instance-groups managed delete "$INSTANCEGROUP" \
+      --region "$REGION" \
+      --quiet
+  fi
+}
+
+function gcloudrig_delete_instance_template {
+  # if the instance template already exists, delete it
+  if ! [ -z "$(gcloud compute instance-templates list --filter "name=$INSTANCETEMPLATE region:($REGION)" --format "value(name)" --quiet)" ]; then
+    gcloud compute instance-templates delete "$INSTANCETEMPLATE" \
+      --quiet
+  fi
+}
+
+function gcloudrig_create_base_image {
+  if ! gcloud compute images describe "$IMAGE" --format "value(name)" &>/dev/null; then
+    echo "Creating base image..."
+    gcloud compute images create "$IMAGE" \
+      --source-image-family "$IMAGEBASEFAMILY" \
+      --source-image-project "$IMAGEBASEPROJECT" \
+      --guest-os-features "WINDOWS" \
+      --family "$IMAGEFAMILY" \
+      --labels "$GCRLABEL=true" \
+      --quiet
+  fi
+}
+
+function gcloudrig_create_instance_template {
+  # create instance template
+  echo "Creating instance template $INSTANCETEMPLATE..."
+  gcloud compute instance-templates create "$INSTANCETEMPLATE" \
+    --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
+    --boot-disk-type "$BOOTTYPE" \
+    --image "$IMAGE" \
+    --labels "$GCRLABEL=true" \
+    --machine-type "$INSTANCETYPE" \
+    --maintenance-policy "TERMINATE" \
+    --no-boot-disk-auto-delete \
+    --no-restart-on-failure \
+    --format "value(name)" \
+    --quiet
+}
+
+function gcloudrig_create_instance_group {
+  # create regional managed instance group and give it the base instance template
+  echo "Creating managed instance group '$INSTANCEGROUP'..."
+  gcloud compute instance-groups managed create "$INSTANCEGROUP" \
+    --base-instance-name "$INSTANCENAME" \
+    --region "$REGION" \
+    --size "0" \
+    --template "$INSTANCETEMPLATE" \
+    --zones "$ZONES" \
+    --format "value(name)" \
+    --quiet
+}
+
+
+
+##################
+# OTHER COMMANDS #
+##################
 
 function wait_until_instance_group_is_stable {
   timeout 120s gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
