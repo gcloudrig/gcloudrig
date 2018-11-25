@@ -56,10 +56,10 @@ function init {
 function init_setup {
 
   if [ -z "$(gcloud config configurations list --filter "name=(gcloudrig)" --format "value(name)" --quiet)" ]; then
-    gcloud config configurations create $CONFIGURATION --quiet
+    gcloud config configurations create "$CONFIGURATION" --quiet
   fi
 
-  gcloud config configurations activate $CONFIGURATION --quiet
+  gcloud config configurations activate "$CONFIGURATION" --quiet
 
   if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID="$(gcloud config get-value core/project --quiet)"
@@ -202,7 +202,7 @@ function gcloudrig_delete_instance_template {
 }
 
 function gcloudrig_create_base_image {
-  if ! gcloud compute images describe "$IMAGE" --format "value(name)" &>/dev/null; then
+  if [ -z "$(gcloudrig_get_bootimage)" ]; then
     echo "Creating base image..."
     gcloud compute images create "$IMAGE" \
       --source-image-family "$IMAGEBASEFAMILY" \
