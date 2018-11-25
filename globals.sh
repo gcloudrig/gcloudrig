@@ -13,13 +13,13 @@ IMAGEBASEFAMILY="windows-2016"
 IMAGEBASEPROJECT="windows-cloud"
 
 # various resource and label names
-GAMESDISK="gcloudrig-test-games"
-GCRLABEL="gcloudrig-test"
-IMAGEFAMILY="gcloudrig-test"
-INSTANCEGROUP="gcloudrig-test-group"
-INSTANCENAME="gcloudrig-test"
-INSTANCETEMPLATE="gcloudrig-test-template"
-CONFIGURATION="gcloudrig-test"
+GAMESDISK="gcloudrig-games"
+GCRLABEL="gcloudrig"
+IMAGEFAMILY="gcloudrig"
+INSTANCEGROUP="gcloudrig-group"
+INSTANCENAME="gcloudrig"
+INSTANCETEMPLATE="gcloudrig-template"
+CONFIGURATION="gcloudrig"
 
 # override only if nessessary
 REGION=""
@@ -55,7 +55,7 @@ function init {
 
 function init_setup {
 
-  if [ -z "$(gcloud config configurations list --filter "name=$CONFIGURATION" --format "value(name)")" ]; then
+  if [ -z "$(gcloud config configurations list --filter "name=(gcloudrig)" --format "value(name)" --quiet)" ]; then
     gcloud config configurations create $CONFIGURATION --quiet
   fi
 
