@@ -95,7 +95,7 @@ workflow Install-gCloudRig {
     Write-Status "Creating shortcuts and installing TightVNC and other tooling..."
 
     # create shortcut to disconnect
-    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut("$home\Desktop\Disconnect.lnk")
+    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut("$home\Desktop\DisconnectRDP.lnk")
     $Shortcut.TargetPath = "C:\Windows\System32\cmd.exe"
     $Shortcut.Arguments = @'
 /c "for /F "tokens=1 delims=^> " %i in ('""%windir%\system32\qwinsta.exe" | "%windir%\system32\find.exe" /I "^>rdp-tcp#""') do "%windir%\system32\tscon.exe" %i /dest:console"
@@ -122,7 +122,7 @@ workflow Install-gCloudRig {
     # install tightvnc
     Download-File -URL "http://www.tightvnc.com/download/2.8.5/tightvnc-2.8.5-gpl-setup-64bit.msi" -File "c:\gcloudrig\downloads\tightvnc.msi"
     $psw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
-    & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD=$psw | Out-Null
+    & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" | Out-Null
     Write-Status "  done."
   }
 
@@ -213,7 +213,7 @@ workflow Install-gCloudRig {
     Start-Service Audiosrv
 
     # download and install driver
-    (New-Object System.Net.WebClient).DownloadFile("http://vbaudio.jcedeveloppement.com/Download_CABLE/VBCABLE_Driver_Pack43.zip", "c:\gcloudrig\downloads\vbcable.zip")
+    Download-File -URL "http://vbaudio.jcedeveloppement.com/Download_CABLE/VBCABLE_Driver_Pack43.zip" -File "c:\gcloudrig\downloads\vbcable.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\vbcable.zip" -DestinationPath "c:\gcloudrig\downloads\vbcable"
     (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\vbcable\vbaudio_cable64_win7.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer"
     Import-Certificate -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
@@ -237,8 +237,7 @@ workflow Install-gCloudRig {
     #Set-NetIsatapConfiguration -State disabled
 
     # install zerotier
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    (New-Object System.Net.WebClient).DownloadFile("https://download.zerotier.com/dist/ZeroTier%20One.msi", "c:\gcloudrig\downloads\zerotier.msi")
+    Download-File -URL "https://download.zerotier.com/dist/ZeroTier%20One.msi" -File "c:\gcloudrig\downloads\zerotier.msi"
     & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\zerotier.msi -oc:\gcloudrig\downloads\zerotier
     (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
     Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
@@ -249,8 +248,7 @@ workflow Install-gCloudRig {
 
   InlineScript {
     Write-Status "Installing Parsec..."
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    (New-Object System.Net.WebClient).DownloadFile("https://s3.amazonaws.com/parsec-build/package/parsec-windows.exe", "c:\gcloudrig\downloads\parsec-windows.exe")
+    Download-File -URL "https://s3.amazonaws.com/parsec-build/package/parsec-windows.exe" -File "c:\gcloudrig\downloads\parsec-windows.exe"
     & c:\gcloudrig\downloads\parsec-windows.exe
     Write-Status "  done."
   }
@@ -260,12 +258,11 @@ workflow Install-gCloudRig {
 
     # TODO: add param to make bnet optional
     # download bnetlauncher
-    (New-Object System.Net.WebClient).DownloadFile("http://madalien.com/pub/bnetlauncher/bnetlauncher_v18.zip", "c:\gcloudrig\downloads\bnetlauncher.zip")
+    Download-File -URL "http://madalien.com/pub/bnetlauncher/bnetlauncher_v18.zip" -File "c:\gcloudrig\downloads\bnetlauncher.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\bnetlauncher.zip" -DestinationPath "c:\gcloudrig\bnetlauncher"
 
     # download bnet (needs to be launched twice because of some error)
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    (New-Object System.Net.WebClient).DownloadFile("https://www.battle.net/download/getInstallerForGame?os=win&locale=enUS&version=LIVE&gameProgram=BATTLENET_APP", "c:\gcloudrig\downloads\battlenet.exe")
+    Download-File -URL "https://www.battle.net/download/getInstallerForGame?os=win&locale=enUS&version=LIVE&gameProgram=BATTLENET_APP" -File "c:\gcloudrig\downloads\battlenet.exe"
     & c:\gcloudrig\downloads\battlenet.exe --lang=english
     sleep 25
     Stop-Process -Name "battlenet"
@@ -273,7 +270,7 @@ workflow Install-gCloudRig {
 
     # TODO: add param to make steam optional
     # download steam
-    (New-Object System.Net.WebClient).DownloadFile("https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe", "c:\gcloudrig\downloads\steamsetup.exe")
+    Download-File -URL "https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe" -File "c:\gcloudrig\downloads\steamsetup.exe"
     & c:\gcloudrig\downloads\steamsetup.exe /S | Out-Null
 
     # create the task to restart steam (such that we're not stuck in services Session 0 desktop when launching)
