@@ -3,124 +3,95 @@
 # exit on error
 set -e
 
+set -x
+
 # full path to script dir
 DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
-# load globals 
+# load globals
 # shellcheck source=globals.sh
 source "$DIR/globals.sh"
+init_setup # init;
 
-# create/recreate base instance template
-echo "Creating instance template $INSTANCETEMPLATE-base using latest $IMAGEBASEFAMILY image..."
-gcloud beta compute instance-templates delete "${INSTANCETEMPLATE}-base" --quiet || echo
-gcloud beta compute instance-templates create "${INSTANCETEMPLATE}-base" \
-	--image-family "$IMAGEBASEFAMILY" \
-	--image-project "$IMAGEBASEPROJECT" \
-	--machine-type "$INSTANCETYPE" \
-	--accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
-	--boot-disk-type "$BOOTTYPE" \
-	--maintenance-policy "TERMINATE" \
-	--no-boot-disk-auto-delete \
-	--no-restart-on-failure \
-	--labels "$GCRLABEL=true" \
-	--format "value(name)" \
-	--quiet
+# create/recreate instance group and template
+gcloudrig_delete_instance_group
+gcloudrig_delete_instance_template
+gcloudrig_create_instance_template
+gcloudrig_create_instance_group
 
-# create/recreate actual instance template
-echo "Creating instance template $INSTANCETEMPLATE..."
-gcloud beta compute instance-templates delete "$INSTANCETEMPLATE" --quiet || echo
-gcloud beta compute instance-templates create "$INSTANCETEMPLATE" \
-	--image "$IMAGE" \
-	--machine-type "$INSTANCETYPE" \
-	--accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
-	--boot-disk-type "$BOOTTYPE" \
-	--maintenance-policy "TERMINATE" \
-	--no-boot-disk-auto-delete \
-	--no-restart-on-failure \
-	--labels "$GCRLABEL=true" \
-	--quiet
+# create gcs bucket
+GCSBUCKET="gs://$PROJECT_ID"
 
-# create a managed instance group that covers all zones (GPUs tend to be oversubscribed in certain zones)
-# and give it the base instance template
-echo "Creating managed instance group $INSTANCEGROUP..."
-gcloud beta compute instance-groups managed delete "$INSTANCEGROUP" --quiet \
-	--region "$REGION" \
-	|| echo
-gcloud beta compute instance-groups managed create "$INSTANCEGROUP" \
-	--base-instance-name "$INSTANCENAME" \
-	--template "${INSTANCETEMPLATE}-base" \
-	--size "0" \
-	--region "$REGION" \
-	--zones "$ZONES" \
-	--format "value(name)" \
-	--quiet
+echo "Creating GCS bucket $GCSBUCKET/ to store install script..."
+gsutil mb -p "$PROJECT_ID" -c regional -l "$REGION"  "$GCSBUCKET/" || echo "already exists?"
 
-# run first-boot things, only if an image doesn't already exist
-if ! gcloud compute images describe "$IMAGE" --format "value(name)"; then
+echo "Copying software install script to GCS..."
+gsutil cp "$DIR/gcloudrig.psm1" "$GCSBUCKET/"
 
-  echo "Creating GCS bucket $GCSBUCKET/ to store install script..."
-  gsutil mb -p "$PROJECT_ID" -c regional -l "$REGION"  "$GCSBUCKET/" || echo "already exists?"
+# replace any '#' chars, since they're used in sed command
+# TODO: This is horribly insecure; migrate to `gcloud kms` instead?
+WINDOWS_PASS="$(generate_windows_password | tr '#' '^')"
 
-  echo "Copying software install script to GCS..."
-  gsutil cp "$DIR/gcloudrig.psm1" "$GCSBUCKET/"
+# create installation template and point group at it
+echo "Creating setup template $SETUPTEMPLATE..."
+gcloud compute instance-templates create "$SETUPTEMPLATE" \
+    --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
+    --boot-disk-type "$BOOTTYPE" \
+    --image-family "$IMAGEBASEFAMILY" \
+    --image-project "$IMAGEBASEPROJECT" \
+    --labels "$GCRLABEL=true" \
+    --machine-type "$INSTANCETYPE" \
+    --maintenance-policy "TERMINATE" \
+    --no-boot-disk-auto-delete \
+    --no-restart-on-failure \
+    --format "value(name)" \
+    --metadata-from-file windows-startup-script-ps1=<(sed -e "s#@URL@#$GCSBUCKET/gcloudrig.psm1#;s#@PASSWORD@#$WINDOWS_PASS#" "$DIR/windows-setup.ps1.template") \
+    --quiet
 
-  # replace any '#' chars, messes with the sed command
-  WINDOWS_PASS="$(generate_windows_password | tr '#' '^')"
-  echo "Enabling software installer..." 
-  gcloud compute project-info add-metadata \
-    --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/windows-setup.ps1.template" | \
-    sed -e "s#@URL@#$GCSBUCKET/gcloudrig.psm1#;s#@PASSWORD@#$WINDOWS_PASS#")
+# point group at installation template
+gcloud compute instance-groups managed "$INSTANCEGROUP" set-instance-template "$SETUPTEMPLATE"
 
-	# turn it on
-	echo "Starting gcloudrig..."
-	gcloudrig_start
+# start 'er up
+gcloudrig_start
+gcloudrig_mount_games_disk
 
-	# add extra volume
-	echo "Mounting games disk..."
-	gcloudrig_mount_games_disk
+# wait until script is complete
+logURL="https://console.cloud.google.com/logs/viewer?authuser=1&project=${PROJECT_ID}&resource=global&logName=projects%2F${PROJECT_ID}%2Flogs%2Fgcloudrig-install"
+echo "Software install will take a while. Watch the logs at:"
+echo
+echo "  $logURL"
+echo
+echo "The last line will be 'All done!'"
+echo
+echo "To connect with RDP"
+echo "  username: gcloudrig"
+echo "  password: $WINDOWS_PASS"
+read -r -p "Press enter when software install is complete..."
 
-	# wait for 60 seconds.  
-	# in future, this is where we should poll a URL or wait for a pub/sub to let us know software installation is complete.
-  logURL="https://console.cloud.google.com/logs/viewer?authuser=1&project=${PROJECT_ID}&resource=global&logName=projects%2F${PROJECT_ID}%2Flogs%2Fgcloudrig-install"
-  echo "Software install will take a while. Watch the logs at:"
-  echo "$logURL"
-  echo "The last line will be 'All done!'"
-  echo
-  echo "To connect with RDP"
-  echo "  username: gcloudrig"
-  echo "  password: $WINDOWS_PASS"
-  read -p "Press enter when software install is complete..."
+echo "Removing software install script from GCS..."
+gsutil rm "$GCSBUCKET/gcloudrig.psm1"
 
-  echo "Disabling software installer..."
-  gcloud compute project-info remove-metadata \
-    --keys=windows-startup-script-ps1
+# shut it down
+gcloudrig_stop
 
-  echo "Removing software install script from GCS..."
-  gsutil rm "$GCSBUCKET/gcloudrig.psm1"
+# save boot image (in the background)
+gcloudrig_boot_disk_to_image &
 
-	# shut it down
-	echo "Stopping gcloudrig..."
-	gcloudrig_stop
+# save games snapshot (in the background)
+gcloudrig_games_disk_to_snapshot &
 
-	# save boot image
-	echo "Saving new boot image..."
-	gcloudrig_boot_disk_to_image
-
-	# save games snapshot
-	echo "Snapshotting games disk..."
-	gcloudrig_games_disk_to_snapshot
-
-fi
-
-# point managed instance group at new template
+# point managed instance group back at the real template
 echo "Tidying up..."
 gcloud compute instance-groups managed set-instance-template "$INSTANCEGROUP" \
-	--template "$INSTANCETEMPLATE" \
-	--region "$REGION" \
-	--quiet
+    --template "$INSTANCETEMPLATE" \
+    --region "$REGION" \
+    --quiet
 
-# delete base template
-gcloud compute instance-templates delete "${INSTANCETEMPLATE}-base" \
-	--quiet
+# delete setup template
+gcloud compute instance-templates delete "$SETUPTEMPLATE" \
+    --quiet
 
-echo "Done!"
+# wait for background tasks to complete
+wait
+
+echo "Done!  Run './scale-up.sh' to start your instance."
