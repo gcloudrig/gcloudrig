@@ -357,6 +357,24 @@ Function New-gCloudRigInstall {
   # disable uac
   New-ItemProperty -Path "HKLM:Software\Microsoft\Windows\CurrentVersion\policies\system" -Name EnableLUA -PropertyType DWord -Value 0 -Force
 
+  # schedule a task to initialise the games disk, set as Z:
+  $initGamesDiskScript = @'
+try {
+  # stop hardware detection service to avoid a pop-up dialog
+  Stop-Service -Name ShellHWDetection -ErrorAction SilentlyContinue
+  Get-Disk | Where partitionstyle -eq 'raw' |
+    Initialize-Disk -PartitionStyle GPT -PassThru |
+    New-Partition -DriveLetter Z -UseMaximumSize -GptType '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}' |
+    Format-Volume -FileSystem NTFS -NewFileSystemLabel "Games" -Confirm:$false
+} catch {
+  & gcloud logging write gcloudrig-install ("Failed to initialise Games disk: {0}" -f $_.Exception.Message)
+} finally {
+  Start-Service -Name ShellHWDetection -ErrorAction SilentlyContinue
+}
+'@
+  $initGamesDiskScript | Out-File "c:\gcloudrig\initGamesDiskScript.ps1"
+  Register-ScriptScheduler -ScriptPath "c:\gcloudrig\initGamesDiskScript.ps1" -ScheduleName "Initialise Games Disk"
+
   # write the startup job (to be run only for the gcloudrig user)
 $StartupCommands = @'
 if ($env:USERNAME -eq "gcloudrig") {
