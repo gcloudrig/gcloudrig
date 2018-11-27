@@ -92,6 +92,25 @@ workflow Install-gCloudRig {
   Write-Status "  done."
 
   InlineScript {
+    Write-Status "Installing VPN..."
+
+    # disable ipv6 
+    # TODO commented out. why does CloudyGamer do this?
+    #Set-Net6to4Configuration -State disabled
+    #Set-NetTeredoConfiguration -Type disabled
+    #Set-NetIsatapConfiguration -State disabled
+
+    # install zerotier
+    Download-File -URL "https://download.zerotier.com/dist/ZeroTier%20One.msi" -File "c:\gcloudrig\downloads\zerotier.msi"
+    & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\zerotier.msi -oc:\gcloudrig\downloads\zerotier
+    (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
+    Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
+    & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi | Out-Null
+
+    Write-Status "  done."
+  }
+
+  InlineScript {
     Write-Status "Creating shortcuts and install other tooling..."
 
     # create shortcut to disconnect
@@ -235,25 +254,6 @@ workflow Install-gCloudRig {
     if ($(Get-Device | where Name -eq "VB-Audio Virtual Cable").count -eq 0) {
       throw "VBCable failed to install"
     }
-    Write-Status "  done."
-  }
-
-  InlineScript {
-    Write-Status "Installing VPN..."
-
-    # disable ipv6 
-    # TODO commented out. why does CloudyGamer do this?
-    #Set-Net6to4Configuration -State disabled
-    #Set-NetTeredoConfiguration -Type disabled
-    #Set-NetIsatapConfiguration -State disabled
-
-    # install zerotier
-    Download-File -URL "https://download.zerotier.com/dist/ZeroTier%20One.msi" -File "c:\gcloudrig\downloads\zerotier.msi"
-    & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\zerotier.msi -oc:\gcloudrig\downloads\zerotier
-    (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
-    Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
-    & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi | Out-Null
-
     Write-Status "  done."
   }
 
