@@ -11,7 +11,7 @@ DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 # load globals
 # shellcheck source=globals.sh
 source "$DIR/globals.sh"
-init_setup # init;
+init_setup # init_gcloudrig;
 
 gcloudrig_delete_instance_group
 
