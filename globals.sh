@@ -250,27 +250,39 @@ function gcloudrig_update_instance_group {
     --quiet
 
   # update instance group with the new template
-  gcloud compute instance-groups managed set-instance-template "$newtemplate" --quiet
+  gcloud compute instance-groups managed set-instance-template "$INSTANCEGROUP" --region "$REGION" --template "$newtemplate" --quiet
 
   # tidy up - delete all other templates
   local templates=()
   mapfile -t templates < <(gcloud compute instance-templates list \
     --format "value(name)" \
     --filter "properties.labels.gcloudrig=true")
-  for templates in "${templates[@]}"; do
+  for template in "${templates[@]}"; do
     if ! [ "$newtemplate" == "$template" ]; then
       gcloud compute instance-templates delete "$template" --quiet
     fi
   done
 }
 
-# deletes existing instance group
+# deletes existing instance group and all templates
 function gcloudrig_delete_instance_group {
   if ! [ -z "$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(name)" --quiet)" ]; then
     gcloud compute instance-groups managed delete "$INSTANCEGROUP" \
       --region "$REGION" \
       --quiet
   fi
+
+
+  # tidy up - delete all other templates
+  local templates=()
+  mapfile -t templates < <(gcloud compute instance-templates list \
+    --format "value(name)" \
+    --filter "properties.labels.gcloudrig=true")
+  for templates in ${templates[*]}; do
+    if ! [ "$newtemplate" == "$template" ]; then
+      gcloud compute instance-templates delete "$template" --quiet
+    fi
+  done
 }
 
 
