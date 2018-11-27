@@ -35,7 +35,7 @@ GCSBUCKET=""
 # INIT #
 ########
 
-function init {
+function init_gcloudrig {
 
   if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID="$(gcloud config get-value core/project --quiet)"
