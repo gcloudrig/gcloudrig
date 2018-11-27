@@ -9,7 +9,7 @@ DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 # load globals
 # shellcheck source=globals.sh
 source "$DIR/globals.sh"
-init;
+init_gcloudrig;
 
 # start it up
 gcloudrig_start

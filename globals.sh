@@ -12,27 +12,30 @@ BOOTTYPE="pd-ssd"
 IMAGEBASEFAMILY="windows-2016"
 IMAGEBASEPROJECT="windows-cloud"
 
+
+
+# used as a label and prefix to help identify gcloudrig resources
+GCRLABEL="gcloudrig"
+
 # various resource and label names
 GAMESDISK="gcloudrig-games"
-GCRLABEL="gcloudrig"
 IMAGEFAMILY="gcloudrig"
 INSTANCEGROUP="gcloudrig-group"
 INSTANCENAME="gcloudrig"
-INSTANCETEMPLATE="gcloudrig-template"
+SETUPTEMPLATE="gcloudrig-setup-template"
 CONFIGURATION="gcloudrig"
 
-# override only if nessessary
+# other globals; overrides may be ignored
 REGION=""
 PROJECT_ID=""
 ZONES=""
-
-
+GCSBUCKET=""
 
 ########
 # INIT #
 ########
 
-function init {
+function init_gcloudrig {
 
   if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID="$(gcloud config get-value core/project --quiet)"
@@ -83,6 +86,13 @@ function init_setup {
     gcloud services enable compute.googleapis.com
   fi
 
+  # check if logging api is enabled, if not enable it
+  LOGGINGAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=logging.googleapis.com" --quiet)
+  if [ "$LOGGINGAPI" != "logging.googleapis.com" ]; then
+    echo "Enabling Logging API..."
+    gcloud services enable logging.googleapis.com
+  fi
+
   # check if a default region is set, if not re-run 'gcloud init'
   if  [ -z "$REGION" ]; then
     gcloud init --skip-diagnostics
@@ -93,6 +103,8 @@ function init_setup {
 }
 
 function init_common {
+  GCSBUCKET="gs://$PROJECT_ID"
+
   local groupsize=0
   local regionzones=()
   local acceleratorzones=()
@@ -180,47 +192,55 @@ function gcloudrig_get_bootimage {
 
 
 
-#################
-# DELETE/CREATE #
-#################
+##################
+# INSTANCE GROUP #
+##################
 
-function gcloudrig_delete_instance_group {
-  # if the instance group already exists, delete it
-  if ! [ -z "$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(name)" --quiet)" ]; then
-    gcloud compute instance-groups managed delete "$INSTANCEGROUP" \
-      --region "$REGION" \
-      --quiet
-  fi
-}
+# creates regional managed instance group and gives it the base instance template
+function gcloudrig_create_instance_group {
+  local template="";
 
-function gcloudrig_delete_instance_template {
-  # if the instance template already exists, delete it
-  if ! [ -z "$(gcloud compute instance-templates list --filter "name=$INSTANCETEMPLATE" --format "value(name)" --quiet)" ]; then
-    gcloud compute instance-templates delete "$INSTANCETEMPLATE" \
-      --quiet
-  fi
-}
-
-function gcloudrig_create_base_image {
-  if [ -z "$(gcloudrig_get_bootimage)" ]; then
-    echo "Creating base image..."
-    gcloud compute images create "$IMAGE" \
-      --source-image-family "$IMAGEBASEFAMILY" \
-      --source-image-project "$IMAGEBASEPROJECT" \
-      --guest-os-features "WINDOWS" \
-      --family "$IMAGEFAMILY" \
+  echo "Creating initial template '$SETUPTEMPLATE'..."
+  SETUPTEMPLATE=$(gcloud compute instance-templates create "$SETUPTEMPLATE" \
+      --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
+      --boot-disk-type "$BOOTTYPE" \
+      --image-family "$IMAGEBASEFAMILY" \
+      --image-project "$IMAGEBASEPROJECT" \
       --labels "$GCRLABEL=true" \
-      --quiet
-  fi
+      --machine-type "$INSTANCETYPE" \
+      --maintenance-policy "TERMINATE" \
+      --no-boot-disk-auto-delete \
+      --no-restart-on-failure \
+      --format "value(name)" \
+      --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/windows-setup.ps1") \
+      --quiet)
+
+  echo "Creating managed instance group '$INSTANCEGROUP'..."
+  gcloud compute instance-groups managed create "$INSTANCEGROUP" \
+    --base-instance-name "$INSTANCENAME" \
+    --region "$REGION" \
+    --size "0" \
+    --template "$SETUPTEMPLATE" \
+    --zones "$ZONES" \
+    --format "value(name)" \
+    --quiet
 }
 
-function gcloudrig_create_instance_template {
-  # create instance template
-  echo "Creating instance template $INSTANCETEMPLATE..."
-  gcloud compute instance-templates create "$INSTANCETEMPLATE" \
+# updates existing instance group with a new template that uses the latest image
+function gcloudrig_update_instance_group {
+
+  # get latest image
+  local image=""; image=$(gcloudrig_get_bootimage)
+
+  # new template's name
+  local newtemplate="${image}-template"
+
+  # create new template
+  echo "Creating instance template $newtemplate..."
+  gcloud compute instance-templates create "$newtemplate" \
     --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
     --boot-disk-type "$BOOTTYPE" \
-    --image "$IMAGE" \
+    --image "$image" \
     --labels "$GCRLABEL=true" \
     --machine-type "$INSTANCETYPE" \
     --maintenance-policy "TERMINATE" \
@@ -228,20 +248,43 @@ function gcloudrig_create_instance_template {
     --no-restart-on-failure \
     --format "value(name)" \
     --quiet
+
+  # update instance group with the new template
+  gcloud compute instance-groups managed set-instance-template "$INSTANCEGROUP" --region "$REGION" --template "$newtemplate" --quiet
+
+  # tidy up - delete all other templates
+  local templates=()
+  mapfile -t templates < <(gcloud compute instance-templates list \
+    --format "value(name)" \
+    --filter "properties.labels.gcloudrig=true")
+  for template in "${templates[@]}"; do
+    if ! [ "$newtemplate" == "$template" ]; then
+      gcloud compute instance-templates delete "$template" --quiet
+    fi
+  done
 }
 
-function gcloudrig_create_instance_group {
-  # create regional managed instance group and give it the base instance template
-  echo "Creating managed instance group '$INSTANCEGROUP'..."
-  gcloud compute instance-groups managed create "$INSTANCEGROUP" \
-    --base-instance-name "$INSTANCENAME" \
-    --region "$REGION" \
-    --size "0" \
-    --template "$INSTANCETEMPLATE" \
-    --zones "$ZONES" \
+# deletes existing instance group and all templates
+function gcloudrig_delete_instance_group {
+  if ! [ -z "$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(name)" --quiet)" ]; then
+    gcloud compute instance-groups managed delete "$INSTANCEGROUP" \
+      --region "$REGION" \
+      --quiet
+  fi
+
+
+  # tidy up - delete all other templates
+  local templates=()
+  mapfile -t templates < <(gcloud compute instance-templates list \
     --format "value(name)" \
-    --quiet
+    --filter "properties.labels.gcloudrig=true")
+  for templates in ${templates[*]}; do
+    if ! [ "$newtemplate" == "$template" ]; then
+      gcloud compute instance-templates delete "$template" --quiet
+    fi
+  done
 }
+
 
 
 
@@ -323,7 +366,7 @@ function gcloudrig_boot_disk_to_image {
   echo "Creating boot image, this may take some time..."
 
   # save boot image, but don't label it yet
-  newimage="$IMAGEFAMILY-$(mktemp --dry-run XXXXXX | tr '[:upper:]' '[:lower:]')"
+  newimage="$BOOTDISK-$(date +"%Y%m%d%H%M%S")"
   gcloud compute images create "$newimage" \
     --source-disk "$BOOTDISK" \
     --source-disk-zone "$ZONE" \
@@ -351,6 +394,9 @@ function gcloudrig_boot_disk_to_image {
   gcloud compute images add-labels "$newimage" \
     --labels "latest=true,$GCRLABEL=true"
 
+  # update the instance group (in the background)
+  gcloudrig_update_instance_group &
+
   # delete boot disk
   gcloud compute disks delete "$BOOTDISK" \
     --zone "$ZONE" \
@@ -363,8 +409,11 @@ function gcloudrig_boot_disk_to_image {
 
   # delete them
   for image in "${images[@]}"; do
-    gcloud compute images delete "$image" --quiet
+    gcloud compute images delete "$image" --quiet &
   done
+
+  # wait for things to finish
+  wait
 }
 
 # turn games disk into a snapshot; delete all but latest on success
@@ -375,7 +424,7 @@ function gcloudrig_games_disk_to_snapshot {
   echo "Snapshotting games disk..."
 
   # save games snapshot, but don't label it yet
-  newsnapshot="$GAMESDISK-$(mktemp --dry-run XXXXXX | tr '[:upper:]' '[:lower:]')-snap"
+  newsnapshot="$GAMESDISK-$(date +"%Y%m%d%H%M%S")"
   gcloud compute disks snapshot "$GAMESDISK" \
     --snapshot-names "$newsnapshot" \
     --zone "$ZONE" \
