@@ -15,15 +15,15 @@ IMAGEBASEPROJECT="windows-cloud"
 
 
 # used as a label and prefix to help identify gcloudrig resources
-GCRLABEL="gcloudrig-test"
+GCRLABEL="gcloudrig"
 
 # various resource and label names
-GAMESDISK="gcloudrig-test-games"
-IMAGEFAMILY="gcloudrig-test"
-INSTANCEGROUP="gcloudrig-test-group"
-INSTANCENAME="gcloudrig-test"
-SETUPTEMPLATE="gcloudrig-test-setup-template"
-CONFIGURATION="gcloudrig-test"
+GAMESDISK="gcloudrig-games"
+IMAGEFAMILY="gcloudrig"
+INSTANCEGROUP="gcloudrig-group"
+INSTANCENAME="gcloudrig"
+SETUPTEMPLATE="gcloudrig-setup-template"
+CONFIGURATION="gcloudrig"
 
 # other globals; overrides may be ignored
 REGION=""
@@ -201,7 +201,7 @@ function gcloudrig_create_instance_group {
   local template="";
 
   echo "Creating initial template '$SETUPTEMPLATE'..."
-  template=$(gcloud compute instance-templates create "$SETUPTEMPLATE" \
+  SETUPTEMPLATE=$(gcloud compute instance-templates create "$SETUPTEMPLATE" \
       --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
       --boot-disk-type "$BOOTTYPE" \
       --image-family "$IMAGEBASEFAMILY" \
@@ -220,7 +220,7 @@ function gcloudrig_create_instance_group {
     --base-instance-name "$INSTANCENAME" \
     --region "$REGION" \
     --size "0" \
-    --template "$template" \
+    --template "$SETUPTEMPLATE" \
     --zones "$ZONES" \
     --format "value(name)" \
     --quiet
