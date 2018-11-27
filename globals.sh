@@ -323,7 +323,7 @@ function gcloudrig_boot_disk_to_image {
   echo "Creating boot image, this may take some time..."
 
   # save boot image, but don't label it yet
-  newimage="$IMAGEFAMILY-$(mktemp --dry-run XXXXXX | tr '[:upper:]' '[:lower:]')"
+  newimage="$BOOTDISK-$(date +"%Y%m%d%H%M%S")"
   gcloud compute images create "$newimage" \
     --source-disk "$BOOTDISK" \
     --source-disk-zone "$ZONE" \
@@ -375,7 +375,7 @@ function gcloudrig_games_disk_to_snapshot {
   echo "Snapshotting games disk..."
 
   # save games snapshot, but don't label it yet
-  newsnapshot="$GAMESDISK-$(mktemp --dry-run XXXXXX | tr '[:upper:]' '[:lower:]')-snap"
+  newsnapshot="$GAMESDISK-$(date +"%Y%m%d%H%M%S")"
   gcloud compute disks snapshot "$GAMESDISK" \
     --snapshot-names "$newsnapshot" \
     --zone "$ZONE" \
