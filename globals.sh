@@ -331,7 +331,10 @@ function gcloudrig_start {
     # wait
     wait_until_instance_group_is_stable
 
-    # and back up again (chance of being spawned in a different zone)
+    # ensure it's using the latest template/image
+    gcloudrig_update_instance_group
+
+    # and scale it back up again (chance of being spawned in a different zone)
     gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
       --size "1" \
       --format "value(currentActions)" \
