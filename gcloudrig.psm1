@@ -106,6 +106,29 @@ workflow Install-gCloudRig {
     (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
     Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
     & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi | Out-Null
+    
+    $ZTDIR="C:\ProgramData\ZeroTier\One"
+    $ZTEXE=(Join-Path $ZTDIR "zerotier-one_x64.exe")
+    if (Test-Path "$ZTDIR") {
+
+      # TODO: auth ZT during this install
+      # needs an API token to sign in (will this work?)
+      #$ZT_AUTHFILE=(Join-Path $ZTDIR "authtoken.secret")
+      #$ZT_TOKEN | Out-File $AUTHFILE
+      
+      # TODO: join a network by ID (once auth is setup)
+      #$ZTEXE -q join $NETWORKID
+
+      # TODO enable Windows Network local discovery on ZT intf
+      
+      # get ZT network address
+      #$ZTNetwork = & $ZTEXE -q /network | ConvertFrom-Json
+      # parse for IPv4 address
+      #$ZTIPv4address = $ZTNetwork.assignedAddresses | Where{ $_ -like "*/24" }
+
+      # TODO: log the ZT IP address to SD
+      # use ZT IP addr to lock down Parsec and VNC
+    }
 
     Write-Status "  done."
   }
@@ -261,6 +284,16 @@ workflow Install-gCloudRig {
     Write-Status "Installing Parsec..."
     Download-File -URL "https://s3.amazonaws.com/parsec-build/package/parsec-windows.exe" -File "c:\gcloudrig\downloads\parsec-windows.exe"
     & c:\gcloudrig\downloads\parsec-windows.exe
+
+    # advanced settings: see https://parsec.tv/config/
+    $ParsecConfig = "C:\Users\%username%\AppData\Roaming\Parsec\config.txt"
+
+    # enable hosting
+    "app_host=1" | Out-File $ParsecConfig
+
+    # TODO lock to ZeroTier VPN
+    #"network_ip_address=$ZT_IP_addr" | Out-File $ParsecConfig
+    #"network_adapter=$ZT_INTF" | Out-File $ParsecConfig
     Write-Status "  done."
   }
 
