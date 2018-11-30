@@ -12,13 +12,9 @@ BOOTTYPE="pd-ssd"
 IMAGEBASEFAMILY="windows-2016"
 IMAGEBASEPROJECT="windows-cloud"
 
-
-
-# used as a label and prefix to help identify gcloudrig resources
-GCRLABEL="gcloudrig"
-
 # various resource and label names
-GAMESDISK="gcloudrig-games"
+GCRLABEL="gcloudrig" # also set in gcloudrig-startup.ps1
+GAMESDISK="gcloudrig-games" # also set in gcloudrig-startup.ps1
 IMAGEFAMILY="gcloudrig"
 INSTANCEGROUP="gcloudrig-group"
 INSTANCENAME="gcloudrig"
@@ -213,7 +209,7 @@ function gcloudrig_create_instance_group {
       --no-boot-disk-auto-delete \
       --no-restart-on-failure \
       --format "value(name)" \
-      --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/windows-setup.ps1") \
+      --metadata-from-file windows-startup-script-ps1=< "$DIR/gcloudrig-setup.ps1" \
       --quiet)
 
   echo "Creating managed instance group '$INSTANCEGROUP'..."
@@ -249,6 +245,7 @@ function gcloudrig_update_instance_group {
     --no-boot-disk-auto-delete \
     --no-restart-on-failure \
     --format "value(name)" \
+    --metadata-from-file windows-startup-script-ps1=< "$DIR/gcloudrig-boot.ps1" \
     --quiet
 
   # update instance group with the new template
