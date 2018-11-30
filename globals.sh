@@ -213,7 +213,7 @@ function gcloudrig_create_instance_group {
       --no-boot-disk-auto-delete \
       --no-restart-on-failure \
       --format "value(name)" \
-      --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-setup.ps1") \
+      --metadata-from-file sysprep-specialize-script-ps1=<(cat "$DIR/gcloudrig-setup.ps1") \
       --quiet || echo
 
   echo "Creating managed instance group '$INSTANCEGROUP'..."
@@ -234,7 +234,7 @@ function gcloudrig_update_instance_group {
   local image=""; image=$(gcloudrig_get_bootimage)
 
   # new template's name
-  local newtemplate="${image}-template"
+  local newtemplate=""; newtemplate="gcloudrig-template-$(date +"%Y%m%d%H%M%S")"
 
   # create new template
   echo "Creating instance template $newtemplate..."
