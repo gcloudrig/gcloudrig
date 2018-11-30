@@ -24,7 +24,3 @@ ElseIf (-Not $existingdisk) {
 # disk now exists, so attach it
 echo "Mounting games disk..."
 gcloud compute instances attach-disk "$INSTANCE" --disk "$GAMESDISK" --zone "$ZONE" --quiet
-
-# restart
-echo "Rebooting..."
-Restart-Computer -Force
