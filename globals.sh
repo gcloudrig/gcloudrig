@@ -12,13 +12,9 @@ BOOTTYPE="pd-ssd"
 IMAGEBASEFAMILY="windows-2016"
 IMAGEBASEPROJECT="windows-cloud"
 
-
-
-# used as a label and prefix to help identify gcloudrig resources
-GCRLABEL="gcloudrig"
-
 # various resource and label names
-GAMESDISK="gcloudrig-games"
+GCRLABEL="gcloudrig" # also set in gcloudrig-startup.ps1
+GAMESDISK="gcloudrig-games" # also set in gcloudrig-startup.ps1
 IMAGEFAMILY="gcloudrig"
 INSTANCEGROUP="gcloudrig-group"
 INSTANCENAME="gcloudrig"
@@ -36,6 +32,8 @@ GCSBUCKET=""
 ########
 
 function init_gcloudrig {
+
+  DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
   if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID="$(gcloud config get-value core/project --quiet)"
@@ -57,6 +55,8 @@ function init_gcloudrig {
 }
 
 function init_setup {
+
+  DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
   if [ -z "$(gcloud config configurations list --filter "name=(gcloudrig)" --format "value(name)" --quiet)" ]; then
     gcloud config configurations create "$CONFIGURATION" --quiet
@@ -201,7 +201,7 @@ function gcloudrig_create_instance_group {
   local template="";
 
   echo "Creating initial template '$SETUPTEMPLATE'..."
-  SETUPTEMPLATE=$(gcloud compute instance-templates create "$SETUPTEMPLATE" \
+  gcloud compute instance-templates create "$SETUPTEMPLATE" \
       --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
       --boot-disk-type "$BOOTTYPE" \
       --image-family "$IMAGEBASEFAMILY" \
@@ -209,11 +209,12 @@ function gcloudrig_create_instance_group {
       --labels "$GCRLABEL=true" \
       --machine-type "$INSTANCETYPE" \
       --maintenance-policy "TERMINATE" \
+      --scopes "default,compute-rw" \
       --no-boot-disk-auto-delete \
       --no-restart-on-failure \
       --format "value(name)" \
-      --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/windows-setup.ps1") \
-      --quiet)
+      --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-setup.ps1") \
+      --quiet || echo
 
   echo "Creating managed instance group '$INSTANCEGROUP'..."
   gcloud compute instance-groups managed create "$INSTANCEGROUP" \
@@ -244,13 +245,15 @@ function gcloudrig_update_instance_group {
     --labels "$GCRLABEL=true" \
     --machine-type "$INSTANCETYPE" \
     --maintenance-policy "TERMINATE" \
+    --scopes "default,compute-rw" \
     --no-boot-disk-auto-delete \
     --no-restart-on-failure \
     --format "value(name)" \
+    --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
     --quiet
 
   # update instance group with the new template
-  gcloud compute instance-groups managed set-instance-template "$INSTANCEGROUP" --region "$REGION" --template "$newtemplate" --quiet
+  gcloud compute instance-groups managed set-instance-template "$INSTANCEGROUP" --region "$REGION" --template "$newtemplate" --format "value(name)" --quiet 
 
   # tidy up - delete all other templates
   local templates=()
@@ -259,7 +262,7 @@ function gcloudrig_update_instance_group {
     --filter "properties.labels.gcloudrig=true")
   for template in "${templates[@]}"; do
     if ! [ "$newtemplate" == "$template" ]; then
-      gcloud compute instance-templates delete "$template" --quiet
+      gcloud compute instance-templates delete "$template" --format "value(name)" --quiet
     fi
   done
 }
