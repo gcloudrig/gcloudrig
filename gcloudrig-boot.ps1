@@ -1,4 +1,11 @@
-$GCRLABEL, $GamesDiskName, $ZoneName, $InstanceName, $Instance, $GamesDisk, $LatestSnapshotName, $Snapshot
+$GCRLABEL="gcloudrig"
+$GamesDiskName="gcloudrig-games"
+$ZoneName=(Get-GceMetadata -Path "instance/zone" | Split-Path -Leaf)
+$InstanceName=(Get-GceMetadata -Path "instance/name")
+$Instance=(Get-GceInstance $InstanceName -Zone "$ZoneName")
+$GamesDisk=(Get-GceDisk -DiskName "$GamesDiskName")
+$LatestSnapshotName=(gcloud compute snapshots list --format "value(name)" --filter "labels.$GCRLABEL=true labels.latest=true" --project (Get-GceMetadata -Path "project/project-id"))
+$Snapshot=(Get-GceSnapshot -Name "$LatestSnapshotName")
 
 # restore/create games disk and mounts it if it's not already attached somewhere
 function MountGamesDisk {
@@ -27,15 +34,6 @@ function BootCompleted {
 
 # business time
 if (-Not (Get-GceMetadata -Path "instance/attributes/gcloudrig-boot") -Eq "true") {
-    $GCRLABEL="gcloudrig"
-    $GamesDiskName="gcloudrig-games"
-    $ZoneName=(Get-GceMetadata -Path "instance/zone" | Split-Path -Leaf)
-    $InstanceName=(Get-GceMetadata -Path "instance/name")
-    $Instance=(Get-GceInstance $InstanceName -Zone "$ZoneName")
-    $GamesDisk=(Get-GceDisk -DiskName "$GamesDiskName")
-    $LatestSnapshotName=(gcloud compute snapshots list --format "value(name)" --filter "labels.$GCRLABEL=true labels.latest=true" --project (Get-GceMetadata -Path "project/project-id"))
-    $Snapshot=(Get-GceSnapshot -Name "$LatestSnapshotName")
-
     MountGamesDisk
     BootCompleted
 }
