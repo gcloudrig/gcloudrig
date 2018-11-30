@@ -249,7 +249,7 @@ function gcloudrig_update_instance_group {
     --no-boot-disk-auto-delete \
     --no-restart-on-failure \
     --format "value(name)" \
-    --metadata-from-file sysprep-specialize-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
+    --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
     --quiet
 
   # update instance group with the new template
