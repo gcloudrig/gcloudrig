@@ -29,11 +29,14 @@ function MountGamesDisk {
 
 function BootCompleted {
     Set-GceInstance $Instance -AddMetadata @{ "gcloudrig-boot" = "true"; }
-    Restart-Computer -Force -Wait
+    Write-Output "Rebooting..."
+    Restart-Computer -Force
 }
 
 # business time
-if (-Not (Get-GceMetadata -Path "instance/attributes/gcloudrig-boot") -Eq "true") {
+if ((Get-GceMetadata -Path "instance/attributes/gcloudrig-boot") -eq "true") {
+    Write-Output "gcloudrig-boot has already run on this instance, skipping..."
+} else {
     MountGamesDisk
     BootCompleted
 }
