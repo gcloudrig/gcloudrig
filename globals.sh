@@ -54,6 +54,33 @@ function init_gcloudrig {
   init_common
 }
 
+function wrap_gcloud_init {
+
+  cat <<EOF
+
+################################################################################
+#  About to run 'gcloud init'.
+#  When prompted for a zone choose one with $ACCELERATORTYPE GPUs
+#  from this list:
+$(gcloudrig_get_accelerator_zones)
+################################################################################
+
+
+EOF
+
+  gcloud init "$@"
+  PROJECT_ID="$(gcloud config get-value core/project --quiet)"
+  REGION="$(gcloud config get-value compute/region --quiet)"
+  if [ -z "$PROJECT_ID" ] ; then
+    echo "core/project not set.  please re-run ./setup.sh" >&2
+    exit 1
+  fi
+  if [ -z "$REGION" ] ; then
+    echo "compute/region not set.  please re-run ./setup.sh" >&2
+    exit 1
+  fi
+}
+
 function init_setup {
 
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
@@ -72,11 +99,9 @@ function init_setup {
     REGION="$(gcloud config get-value compute/region --quiet)"
   fi
 
-  # check if default project is set; if not, run 'gcloud init'
-  if [ -z "$PROJECT_ID" ]; then
-    gcloud init
-    PROJECT_ID="$(gcloud config get-value core/project --quiet)"
-    REGION="$(gcloud config get-value compute/region --quiet)"
+  # check if default project and region is set; if not, run 'gcloud init'
+  if [ -z "$PROJECT_ID" -o -z "$REGION" ]; then
+    wrap_gcloud_init
   fi
 
   # check if compute api is enabled, if not enable it
@@ -93,11 +118,6 @@ function init_setup {
     gcloud services enable logging.googleapis.com
   fi
 
-  # check if a default region is set, if not re-run 'gcloud init'
-  if  [ -z "$REGION" ]; then
-    gcloud init --skip-diagnostics
-  fi
-
   # now set the zones
   init_common;
 }
@@ -106,29 +126,20 @@ function init_common {
   GCSBUCKET="gs://$PROJECT_ID"
 
   local groupsize=0
-  local regionzones=()
-  local acceleratorzones=()
 
-  # get a list of zones in this region
-  mapfile -d ";" -t regionzones < <(gcloud compute regions describe "$REGION" \
-    --format="value(zones)")
-
-  # get a list of zones with accelerators
-  mapfile -d ";" -t acceleratorzones < <(gcloud compute accelerator-types list \
-    --filter "name=$ACCELERATORTYPE" \
-    --format "value(zone)")
-
-  # intersection
-  for zoneuri in "${regionzones[@]}"; do
-    local zone=""
-    zone="$(basename -- "$zoneuri")"
-    if [[ ${acceleratorzones[*]} =~ $zone ]]; then
-      ZONES="${ZONES},${zone}"
-    fi;
-  done
-
-  # expose a list of zones in this region that support the given accelerator type
-  ZONES="${ZONES:1}"
+  # get a comma separated list of zones with accelerators in the current region
+  ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
+  ZONES="${ZONES//[[:space:]]/,}"
+  if [ -z "$ZONES" ] ; then
+    gcloud config unset compute/zone --quiet
+    gcloud config unset compute/region --quiet
+    echo >&2
+    echo "#################################################################" >&2
+    echo "ERROR: There are no zones in $REGION with accelerator type \"$ACCELERATORTYPE\"" >&2
+    echo "Re-run ./setup.sh and choose a zone from this list:" >&2
+    echo "$(gcloudrig_get_accelerator_zones)" >&2
+    exit 1
+  fi
 
   # get the number of instances currently running
   groupsize=$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(size)" --quiet || echo "0")
@@ -190,6 +201,14 @@ function gcloudrig_get_bootimage {
     --filter "labels.gcloudrig=true labels.latest=true"
 }
 
+# Get zones with accelerators in region $1
+# if $1 is not specified, all regions
+function gcloudrig_get_accelerator_zones {
+  local region="${1:-'*'}"
+  gcloud compute accelerator-types list \
+    --filter "zone:$region AND name=$ACCELERATORTYPE" \
+    --format "value(zone)"
+}
 
 
 ##################
