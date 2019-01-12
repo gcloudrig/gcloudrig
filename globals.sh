@@ -288,22 +288,19 @@ function gcloudrig_update_instance_group {
 
 # deletes existing instance group and all templates
 function gcloudrig_delete_instance_group {
-  if ! [ -z "$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(name)" --quiet)" ]; then
+  if [ -n "$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(name)" --quiet)" ]; then
     gcloud compute instance-groups managed delete "$INSTANCEGROUP" \
       --region "$REGION" \
       --quiet
   fi
-
 
   # tidy up - delete all other templates
   local templates=()
   mapfile -t templates < <(gcloud compute instance-templates list \
     --format "value(name)" \
     --filter "properties.labels.gcloudrig=true")
-  for templates in ${templates[*]}; do
-    if ! [ "$newtemplate" == "$template" ]; then
-      gcloud compute instance-templates delete "$template" --quiet
-    fi
+  for template in "${templates[@]}"; do
+    gcloud compute instance-templates delete "$template" --quiet
   done
 }
 
