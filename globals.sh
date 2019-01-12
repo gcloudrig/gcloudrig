@@ -546,18 +546,18 @@ function gcloudrig_check_quota_gpus_all_regions {
     gcloudrig_get_project_quota_limits
   fi
 
-	# if key exists in array
+  # if key exists in array
   if [ -v "QUOTAS[GPUS_ALL_REGIONS]" ] ; then
-		# gcloud --format option sometimes outputs nothing if the value is 0.0
-		if [ -z "${QUOTAS[GPUS_ALL_REGIONS]}" -o "${QUOTAS[GPUS_ALL_REGIONS]}" == "0.0" ] ; then
-			echo "You have to manually request a quota increase for GPUS_ALL_REGIONS" >&2
+    # gcloud --format option sometimes outputs nothing if the value is 0.0
+    if [ -z "${QUOTAS[GPUS_ALL_REGIONS]}" -o "${QUOTAS[GPUS_ALL_REGIONS]}" == "0.0" ] ; then
+      echo "You have to manually request a quota increase for GPUS_ALL_REGIONS" >&2
       echo "See https://cloud.google.com/compute/quotas#requesting_additional_quota" >&2
-			exit 1
-		else
-			echo "GPUS_ALL_REGIONS quota is ${QUOTAS["GPUS_ALL_REGIONS"]}"
-		fi
-	else
-		echo "no GPUS_ALL_REGIONS quota, good to go."
-	fi
+      exit 1
+    else
+      echo "GPUS_ALL_REGIONS quota is ${QUOTAS["GPUS_ALL_REGIONS"]}"
+    fi
+  else
+    echo "no GPUS_ALL_REGIONS quota, good to go."
+  fi
 }
 
