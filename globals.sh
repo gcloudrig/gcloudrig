@@ -98,6 +98,10 @@ function init_setup {
     gcloud init --skip-diagnostics
   fi
 
+  # not all accounts seem to have a GPUS_ALL_REGIONS quota
+  # but if they do it must be manually increased
+  gcloudrig_check_quota_gpus_all_regions
+
   # now set the zones
   init_common;
 }
@@ -512,3 +516,48 @@ function gcloudrig_mount_games_disk {
     --zone "$ZONE" \
     --quiet &>/dev/null
 }
+
+function gcloudrig_get_project_quota_limits {
+  declare -gA QUOTAS
+  declare -a LIMITS
+  local STRING METRIC_STRING LIMIT_STRING OLDIFS i
+  STRING="$(gcloud compute project-info describe \
+    --project "$PROJECT_ID" \
+    --format "value(quotas.metric,quotas.limit)")"
+
+  # the two values in the format string above are whitespace separated
+  read METRIC_STRING LIMIT_STRING <<< "$STRING"
+
+  # the items in each value are ; separated
+  # combine the two strings into an associative array
+  OLDIFS="$IFS"
+  IFS=';'
+  read -a LIMITS <<< "$LIMIT_STRING"
+  i=0
+  for metric in $METRIC_STRING; do
+    QUOTAS[$metric]="${LIMITS[$i]}"
+    let i=i+1
+  done
+  IFS="$OLDIFS"
+}
+
+function gcloudrig_check_quota_gpus_all_regions {
+  if [ ! -v QUOTAS ] ; then
+    gcloudrig_get_project_quota_limits
+  fi
+
+	# if key exists in array
+  if [ -v "QUOTAS[GPUS_ALL_REGIONS]" ] ; then
+		# gcloud --format option sometimes outputs nothing if the value is 0.0
+		if [ -z "${QUOTAS[GPUS_ALL_REGIONS]}" -o "${QUOTAS[GPUS_ALL_REGIONS]}" == "0.0" ] ; then
+			echo "You have to manually request a quota increase for GPUS_ALL_REGIONS" >&2
+      echo "See https://cloud.google.com/compute/quotas#requesting_additional_quota" >&2
+			exit 1
+		else
+			echo "GPUS_ALL_REGIONS quota is ${QUOTAS["GPUS_ALL_REGIONS"]}"
+		fi
+	else
+		echo "no GPUS_ALL_REGIONS quota, good to go."
+	fi
+}
+
