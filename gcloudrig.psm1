@@ -289,7 +289,7 @@ workflow Install-gCloudRig {
     $ParsecConfig = "C:\Users\%username%\AppData\Roaming\Parsec\config.txt"
 
     # enable hosting
-    "app_host=1" | Out-File $ParsecConfig
+    "app_host=1" | Out-File $ParsecConfig -Append
 
     # TODO lock to ZeroTier VPN
     #"network_ip_address=$ZT_IP_addr" | Out-File $ParsecConfig
