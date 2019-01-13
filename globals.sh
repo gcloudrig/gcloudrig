@@ -213,7 +213,7 @@ function gcloudrig_create_instance_group {
       --no-boot-disk-auto-delete \
       --no-restart-on-failure \
       --format "value(name)" \
-      --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-setup.ps1") \
+      --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
       --quiet || echo
 
   echo "Creating managed instance group '$INSTANCEGROUP'..."
@@ -511,4 +511,16 @@ function gcloudrig_mount_games_disk {
     --disk "$GAMESDISK" \
     --zone "$ZONE" \
     --quiet &>/dev/null
+}
+
+function gcloudrig_enable_software_setup {
+  # create GCS bucket and upload script
+  echo "Creating GCS bucket $GCSBUCKET/ to store installer script..."
+  gsutil mb -p "$PROJECT_ID" -c regional -l "$REGION"  "$GCSBUCKET/" || echo "already exists?"
+
+  echo "Copying software installer script to GCS..."
+  gsutil cp "$DIR/gcloudrig.psm1" "$GCSBUCKET/"
+
+  # announce script's gcs url via project metadata
+  gcloud compute project-info add-metadata --metadata "gcloudrig-setup-script-gcs-url=$GCSBUCKET/gcloudrig.psm1" --quiet
 }

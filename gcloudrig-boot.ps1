@@ -59,6 +59,11 @@ Function Run-Software-Setup {
   # 3. installing
   # 4. complete
   $SetupState=Get-GceMetadata -Path "instance/attributes/gcloudrig-setup-state"
+  if(-Not $SetupState) {
+    # not set, assume this is first boot
+    # TODO: this is fragile, need a better way to set this on the instance for first boot
+    $SetupState = "new"
+  }
   switch($SetupState) {
     "new" { Start-Bootstrap; break }
     "bootstrap" {
