@@ -4,12 +4,14 @@ workflow Install-gCloudRig {
     [parameter(Mandatory=$true)] [Boolean] $Set1610VideoModes
   )
 
+  Set-Setup-State "installing"
+
   Write-Status "Beginning of gcloudrig workflow..."
 
   InlineScript {
     Write-Status "Doing initial install, and disabling uac/windefender..."
 
-    # initial init
+    # create dir for downloads
     New-Item -ItemType directory -Path "c:\gcloudrig\downloads" -Force
 
     # disable windows defender
@@ -347,15 +349,25 @@ workflow Install-gCloudRig {
     # all is complete, remove the startup job
     Remove-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk" -Force
     Write-Status "------ All done! ------"
-    $InstanceName=Get-GceMetadata -Path "name"
-    gcloud compute instances add-metadata "$InstanceName" --metadata "gcloudrig-setup-script-finished=true"
+    Set-Setup-State "complete"
   }
 }
 
+Function Set-Setup-State {
+  Param([parameter(Mandatory=$true)] [String] $State)
+
+  $InstanceName=Get-GceMetadata -Path "name"
+  Set-GceInstance $Instance -AddMetadata @{ "gcloudrig-setup-state" = "$State"; }
+  Write-Status ("changed state to {0}" -f $State)
+}
+
 Function Write-Status {
-  Param([parameter(Mandatory=$true)] [String] $Text)
-  "$(Date) $Text" | Out-File "c:\gcloudrig\installer.txt" -Append
-  gcloud logging write gcloudrig-install "$Text"
+  Param(
+    [parameter(Mandatory=$true)] [String] $Text,
+    [String] $Sev = "INFO",
+  )
+  "$(Date) $Sev $Text" | Out-File "c:\gcloudrig\installer.txt" -Append
+  gcloud logging write gcloudrig-install --severity="$Sev" "$Text"
 }
 
 Function Download-File {
@@ -377,9 +389,12 @@ Function Download-File {
 Function Bootstrap-gCloudRigInstall {
   Param([parameter(Mandatory=$true)] [String] $Password)
 
+  # set state
+  Set-Setup-State "bootstrap"
+  Write-Status "Bootstrapping gCloudRigInstall"
+
   # create gcloudrig dir for file storage and logging
   New-Item -ItemType directory -Path "c:\gcloudrig" -Force
-  Write-Status "Hello! We'll be installing now."
 
   # disable password complexity (so people can choose whatever password they want)
   secedit /export /cfg "c:\secpol.cfg"
@@ -421,14 +436,22 @@ try {
   # write the startup job (to be run only for the gcloudrig user)
 $StartupCommands = @'
 if ($env:USERNAME -eq "gcloudrig") {
-  if (Test-Path "c:\gcloudrig\downloads") {
-    gcloud logging write gcloudrig-install "Resuming install job..."
-    Get-Job "gCloudRigInstaller" | Where {$_.State -eq "Suspended"} | Resume-Job
-  } else {
-    # First time
-    gcloud logging write gcloudrig-install "Running gCloudRigInstaller..."
-    Import-Module gCloudRig
-    Install-gCloudRig -JobName gCloudRigInstaller -TimeZone "Pacific Standard Time" -Set1610VideoModes $true -AsJob
+  $SetupState=Get-GceMetadata -Path "instance/attributes/gcloudrig-setup-state"
+  switch($SetupState) {
+    "bootstrap" {
+      gcloud logging write gcloudrig-install "installer.ps1:Running gCloudRigInstaller..."
+      Import-Module gCloudRig
+      Install-gCloudRig -JobName gCloudRigInstaller -TimeZone "Pacific Standard Time" -Set1610VideoModes $true -AsJob
+      break
+      }
+    "installing" {
+      gcloud logging write gcloudrig-install "installer.ps1:Resuming gCloudRigInstaller job..."
+      Get-Job "gCloudRigInstaller" | Where {$_.State -eq "Suspended"} | Resume-Job
+      break
+      }
+    default {
+      gcloud logging write gcloudrig-install ("installer.ps1 called with state: {0}" -f $SetupState)
+      }
   }
 }
 '@
