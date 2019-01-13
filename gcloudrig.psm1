@@ -17,7 +17,7 @@ workflow Install-gCloudRig {
     Write-Status "  done."
   }
 
-  Write-Status "Rebooting..."
+  Write-Status "Rebooting(2/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
 
@@ -87,7 +87,7 @@ workflow Install-gCloudRig {
     Write-Status "  done."
   }
   
-  Write-Status "Rebooting..."
+  Write-Status "Rebooting(3/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
 
@@ -229,7 +229,7 @@ workflow Install-gCloudRig {
     Write-Status "  done."
   }
 
-  Write-Status "Rebooting..."
+  Write-Status "Rebooting(4/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
 
@@ -254,7 +254,7 @@ workflow Install-gCloudRig {
     Write-Status "  done."
   }
   
-  Write-Status "Rebooting..."
+  Write-Status "Rebooting(5/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
 
@@ -339,7 +339,7 @@ workflow Install-gCloudRig {
     Write-Status "  done."
   }
 
-  Write-Status "Rebooting..."
+  Write-Status "Rebooting(6/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
 
@@ -347,6 +347,8 @@ workflow Install-gCloudRig {
     # all is complete, remove the startup job
     Remove-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk" -Force
     Write-Status "------ All done! ------"
+    $InstanceName=Get-GceMetadata -Path "name"
+    gcloud compute instances add-metadata "$InstanceName" --metadata "gcloudrig-setup-script-finished=true"
   }
 }
 
@@ -442,7 +444,7 @@ if ($env:USERNAME -eq "gcloudrig") {
   $bytes[0x15] = $bytes[0x15] -bor 0x20
   [System.IO.File]::WriteAllBytes($ShortcutPath, $bytes)
 
-  Write-Status "Created gcloudrig user and startup job. Rebooting now."
+  Write-Status "Created gcloudrig user and startup job. Rebooting now(1/6)."
   Restart-Computer -Force
 }
 
