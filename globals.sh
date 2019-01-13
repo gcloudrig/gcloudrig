@@ -56,17 +56,20 @@ function init_gcloudrig {
 
 function wrap_gcloud_init {
 
-  cat <<EOF
+  local ACCELERATORZONES="$(gcloudrig_get_accelerator_zones 2> /dev/null)"
+  if [ -n "$ACCELERATORZONES" ] ; then
+    cat <<EOF
 
 ################################################################################
 #  About to run 'gcloud init'.
 #  When prompted for a zone choose one with $ACCELERATORTYPE GPUs
 #  from this list:
-$(gcloudrig_get_accelerator_zones)
+$ACCELERATORZONES
 ################################################################################
 
 
 EOF
+  fi
 
   gcloud init "$@"
   PROJECT_ID="$(gcloud config get-value core/project --quiet)"
