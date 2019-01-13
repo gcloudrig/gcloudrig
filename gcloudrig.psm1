@@ -374,7 +374,7 @@ Function Download-File {
   }
 }
 
-Function New-gCloudRigInstall {
+Function Bootstrap-gCloudRigInstall {
   Param([parameter(Mandatory=$true)] [String] $Password)
 
   # create gcloudrig dir for file storage and logging

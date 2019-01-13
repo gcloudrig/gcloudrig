@@ -24,7 +24,7 @@ if (Test-Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gclo
     # TODO: put this somewhere safer
     gcloud logging write gcloudrig-install ".user account created/reset; username:gcloudrig; password:$Password"
 
-    New-gCloudRigInstall -Password "$Password"
+    Bootstrap-gCloudRigInstall -Password "$Password"
 
   } else {
     gcloud logging write gcloudrig-install --severity ERROR ".download of gcloudrig.psm1 failed!"
