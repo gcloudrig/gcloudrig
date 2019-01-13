@@ -204,7 +204,7 @@ function gcloudrig_get_bootimage {
 # Get zones with accelerators in region $1
 # if $1 is not specified, all regions
 function gcloudrig_get_accelerator_zones {
-  local region="${1:-'*'}"
+  local region="${1:-*}"
   gcloud compute accelerator-types list \
     --filter "zone:$region AND name=$ACCELERATORTYPE" \
     --format "value(zone)"
