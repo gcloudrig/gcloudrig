@@ -519,26 +519,12 @@ function gcloudrig_mount_games_disk {
 
 function gcloudrig_get_project_quota_limits {
   declare -gA QUOTAS
-  declare -a LIMITS
-  local STRING METRIC_STRING LIMIT_STRING OLDIFS i
-  STRING="$(gcloud compute project-info describe \
-    --project "$PROJECT_ID" \
-    --format "value(quotas.metric,quotas.limit)")"
-
-  # the two values in the format string above are whitespace separated
-  read METRIC_STRING LIMIT_STRING <<< "$STRING"
-
-  # the items in each value are ; separated
-  # combine the two strings into an associative array
-  OLDIFS="$IFS"
-  IFS=';'
-  read -a LIMITS <<< "$LIMIT_STRING"
-  i=0
-  for metric in $METRIC_STRING; do
-    QUOTAS[$metric]="${LIMITS[$i]}"
-    let i=i+1
+  for line in $(gcloud compute project-info describe \
+    --project="$PROJECT_ID" \
+    --flatten="quotas[]" \
+    --format="csv[no-heading](quotas.metric,quotas.limit)") ; do
+    QUOTAS[${line%%,*}]="${line##*,}"
   done
-  IFS="$OLDIFS"
 }
 
 function gcloudrig_check_quota_gpus_all_regions {
