@@ -54,75 +54,123 @@ function init_gcloudrig {
   init_common
 }
 
-function wrap_gcloud_init {
-
-  local ACCELERATORZONES="$(gcloudrig_get_accelerator_zones 2> /dev/null)"
-  if [ -n "$ACCELERATORZONES" ] ; then
-    cat <<EOF
-
-################################################################################
-#  About to run 'gcloud init'.
-#  When prompted for a zone choose one with $ACCELERATORTYPE GPUs
-#  from this list:
-$ACCELERATORZONES
-################################################################################
-
-
-EOF
-  fi
-
-  gcloud init "$@"
-  PROJECT_ID="$(gcloud config get-value core/project --quiet)"
-  REGION="$(gcloud config get-value compute/region --quiet)"
-  if [ -z "$PROJECT_ID" ] ; then
-    echo "core/project not set.  please re-run ./setup.sh" >&2
-    exit 1
-  fi
-  if [ -z "$REGION" ] ; then
-    echo "compute/region not set.  please re-run ./setup.sh" >&2
-    exit 1
-  fi
-}
-
 function init_setup {
 
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
-  if [ -z "$(gcloud config configurations list --filter "name=(gcloudrig)" --format "value(name)" --quiet)" ]; then
+  if [ -n "$REGION" -a -n "$PROJECT_ID" ] ; then
+    # settings at the top of this file
+    enable_required_glcoud_apis
+  else
+    # use gcloud config configurations
+    gcloud_config_setup
+  fi
+
+  # now set the zones
+  init_common;
+}
+
+function gcloud_config_setup {
+  # setup a gcloud config manually so we can make sure the user only chooses a
+  # region that has GPUs
+
+  # activate the default config, or create if not found
+  if [ -z "$(gcloud config configurations list --filter "name=($CONFIGURATION)" --format "value(name)" --quiet)" ]; then
+    # create and activate
     gcloud config configurations create "$CONFIGURATION" --quiet
+  else
+    gcloud config configurations activate "$CONFIGURATION" --quiet
   fi
 
-  gcloud config configurations activate "$CONFIGURATION" --quiet
-
-  if [ -z "$PROJECT_ID" ]; then
-    PROJECT_ID="$(gcloud config get-value core/project --quiet)"
+  # setup auth
+  if [ -z "$(gcloud config get-value account 2>/dev/null)" ] ; then
+    ACCOUNTS="$(gcloud auth list --format "value(account)")"
+    if [ -n "$ACCOUNTS" ] ; then
+      echo
+      echo "Select account to use:"
+      select acct in $ACCOUNTS ; do
+        [ -n "$acct" ] && gcloud config set account $acct && break
+      done
+    else
+      gcloud auth login
+    fi
   fi
 
-  if [ -z "$REGION" ]; then
-    REGION="$(gcloud config get-value compute/region --quiet)"
+  # check if default project is set, if not select/create one
+  PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
+  if [ -z "$PROJECT_ID" ] ; then
+    declare -A PROJECTS
+    for line in $(gcloud projects list --format="csv[no-heading](name,project_id)") ; do
+      PROJECTS[${line%%,*}]=${line##*,} 
+    done
+    if [ "${#PROJECTS[@]}" -eq 0 ] ; then
+      # no existing projects, create one
+      PROJECT_ID="gcloudrig-${RANDOM}${RANDOM}"
+      gcloud_projects_create "$PROJECT_ID"
+    else
+      echo
+      echo "Select project to use:"
+      select project in ${!PROJECTS[@]} "new project" ; do
+        if [ -n "$project" ] ; then
+          if [ "$project" == "new project" ] ; then
+            # user requested to use a new project
+            PROJECT_ID="gcloudrig-${RANDOM}${RANDOM}"
+            gcloud_projects_create "$PROJECT_ID"
+          else
+            PROJECT_ID="${PROJECTS[$project]}"
+            gcloud config set project "$PROJECT_ID"
+          fi
+          break
+        fi
+      done
+    fi
   fi
 
-  # check if default project and region is set; if not, run 'gcloud init'
-  if [ -z "$PROJECT_ID" -o -z "$REGION" ]; then
-    wrap_gcloud_init
-  fi
+  # this is required before we can check for regions with GPUs
+  enable_required_glcoud_apis
 
+  # check default region is set, if not select one from regions with accelerators
+  REGION="$(gcloud config get-value compute/region 2>/dev/null)"
+  if [ -z "$REGION" ] ; then
+    ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
+    if [ -n "$ACCELERATORREGIONS" ] ; then
+      echo
+      echo "Select a region to use:"
+      select REGION in $ACCELERATORREGIONS ; do
+        [ -n "$REGION" ] && gcloud config set compute/region $REGION && break
+      done
+    else
+      echo >&2
+      echo "#################################################################" >&2
+      echo "ERROR: no regions with accelerator type \"$ACCELERATORTYPE\" found " >&2
+      exit 1
+    fi
+  fi
+}
+
+function gcloud_projects_create {
+  local PROJECT_ID="$1"
+
+  gcloud projects create "$PROJECT_ID" --name gcloudrig --set-as-default
+  echo "You need to enable billing, then re-run setup.sh"
+  echo "https://console.developers.google.com/project/${PROJECT_ID}/settings"
+  exit 1
+}
+
+function enable_required_glcoud_apis {
   # check if compute api is enabled, if not enable it
-  COMPUTEAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=compute.googleapis.com" --quiet)
+  local COMPUTEAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=compute.googleapis.com" --quiet)
   if [ "$COMPUTEAPI" != "compute.googleapis.com" ]; then
     echo "Enabling Compute API..."
     gcloud services enable compute.googleapis.com
   fi
 
   # check if logging api is enabled, if not enable it
-  LOGGINGAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=logging.googleapis.com" --quiet)
+  local LOGGINGAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=logging.googleapis.com" --quiet)
   if [ "$LOGGINGAPI" != "logging.googleapis.com" ]; then
     echo "Enabling Logging API..."
     gcloud services enable logging.googleapis.com
   fi
-
-  # now set the zones
-  init_common;
 }
 
 function init_common {
@@ -139,7 +187,7 @@ function init_common {
     echo >&2
     echo "#################################################################" >&2
     echo "ERROR: There are no zones in $REGION with accelerator type \"$ACCELERATORTYPE\"" >&2
-    echo "Re-run ./setup.sh and choose a zone from this list:" >&2
+    echo "Re-run ./setup.sh and choose a region from this list:" >&2
     echo "$(gcloudrig_get_accelerator_zones)" >&2
     exit 1
   fi
