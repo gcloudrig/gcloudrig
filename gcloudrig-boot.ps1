@@ -9,24 +9,53 @@ Function Write-Status {
 
 # restore/create games disk and mounts it if it's not already attached somewhere
 function MountGamesDisk {
+  $GamesDiskNeedsInit=$false
   $GamesDisk=(Get-GceDisk -DiskName "$GamesDiskName")
   If (-Not $GamesDisk) {
     $LatestSnapshotName=(gcloud compute snapshots list --format "value(name)" --filter "labels.$GCRLABEL=true labels.latest=true" --project (Get-GceMetadata -Path "project/project-id"))
-    $Snapshot=(Get-GceSnapshot -Name "$LatestSnapshotName")
-    If ($Snapshot) {
-      Write-Status "Restoring games disk from snapshot $Snapshot..."
-      $GamesDisk=(New-GceDisk -DiskName "$GamesDiskName" -Snapshot $Snapshot -Zone "$ZoneName")
+    If ($LatestSnapshotName) {
+      $Snapshot=(Get-GceSnapshot -Name "$LatestSnapshotName")
+      If ($Snapshot) {
+        Write-Status "Restoring games disk from snapshot $LatestSnapshotName..."
+        $GamesDisk=(New-GceDisk -DiskName "$GamesDiskName" -Snapshot $Snapshot -Zone "$ZoneName")
+      } Else {
+        Write-Status "Failed to get snapshot $LatestSnapshotName"
+      }
     } Else {
       Write-Status "Creating blank games disk..."
       $GamesDisk=(New-GceDisk -DiskName "$GamesDiskName" -Zone "$ZoneName")
+      $GamesDiskNeedsInit=$true
     }
   }
 
-  If ($GamesDisk.Users -And ($GamesDisk.Users | Split-Path -Leaf) -Eq $Instance.Name) {
-    Write-Output "Games Disk is already attached!"
+  If ($GamesDisk) {
+    If ($GamesDisk.Users -And ($GamesDisk.Users | Split-Path -Leaf) -Eq $Instance.Name) {
+      Write-Status "Games Disk is already attached!"
+    } Else {
+      Write-Status "Attaching games disk..."
+      Set-GceInstance $Instance -AddDisk $GamesDisk
+      if ($GamesDiskNeedsInit) {
+        InitNewDisk
+      }
+    }
   } Else {
-    Write-Output "Mounting games disk..."
-    Set-GceInstance $Instance -AddDisk $GamesDisk
+    Write-Status -Sev ERROR "failed to mount games disk"
+  }
+}
+
+function InitNewDisk {
+  try {
+    Write-Status "Initialising Games Disk..."
+    # stop hardware detection service to avoid a pop-up dialog
+    Stop-Service -Name ShellHWDetection -ErrorAction SilentlyContinue
+    Get-Disk | Where partitionstyle -eq 'raw' |
+      Initialize-Disk -PartitionStyle GPT -PassThru |
+      New-Partition -DriveLetter Z -UseMaximumSize -GptType '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}' |
+      Format-Volume -FileSystem NTFS -NewFileSystemLabel "Games" -Confirm:$false
+  } catch {
+    Write-Status "Failed to initialise Games disk: $_.Exception.Messager"
+  } finally {
+    Start-Service -Name ShellHWDetection -ErrorAction SilentlyContinue
   }
 }
 
