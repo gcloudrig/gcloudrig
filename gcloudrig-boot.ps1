@@ -3,7 +3,7 @@ Function Write-Status {
     [parameter(Mandatory=$true,ValueFromPipeLine=$true)] [String] $Text,
     [String] $Sev = "INFO"
   )
-  "$(Date) $Sev $Text" | Out-File "c:\gcloudrig-boot.txt" -Append
+  "$Sev $Text" | Write-Output
   gcloud logging write gcloudrig-install --severity="$Sev" "$Text"
 }
 
