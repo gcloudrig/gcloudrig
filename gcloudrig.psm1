@@ -356,15 +356,18 @@ workflow Install-gCloudRig {
 Function Set-Setup-State {
   Param([parameter(Mandatory=$true)] [String] $State)
 
-  $InstanceName=Get-GceMetadata -Path "name"
-  Set-GceInstance $Instance -AddMetadata @{ "gcloudrig-setup-state" = "$State"; }
-  Write-Status ("changed state to {0}" -f $State)
+  $InstanceName=(Get-GceMetadata -Path "instance/name")
+  $InstanceZone=(Get-GceMetadata -Path "instance/zone" | Split-Path -Leaf)
+  #this cmdlet fails with a duplicate key error 
+  #Set-GceInstance $InstanceName -AddMetadata @{ "instance/attributes/gcloudrig-setup-state" = "$State"; }
+  & gcloud compute instances add-metadata $InstanceName --zone=$InstanceZone --metadata gcloudrig-setup-state=$State
+  Write-Status -Sev DEBUG ("changed state to $State")
 }
 
 Function Write-Status {
   Param(
     [parameter(Mandatory=$true)] [String] $Text,
-    [String] $Sev = "INFO",
+    [String] $Sev = "INFO"
   )
   "$(Date) $Sev $Text" | Out-File "c:\gcloudrig\installer.txt" -Append
   gcloud logging write gcloudrig-install --severity="$Sev" "$Text"

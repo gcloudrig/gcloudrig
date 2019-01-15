@@ -87,8 +87,10 @@ Function Run-Software-Setup {
   # 2. boostrap
   # 3. installing
   # 4. complete
-  $SetupState=Get-GceMetadata -Path "instance/attributes/gcloudrig-setup-state"
-  if(-Not $SetupState) {
+  $SetupStateExists=(Get-GceMetadata -Path "instance/attributes" | Select-String "gcloudrig-setup-state")
+  if ($SetupStateExists) {
+    $SetupState=(Get-GceMetadata -Path "instance/attributes/gcloudrig-setup-state")
+  } else {
     # not set, assume this is first boot
     # TODO: this is fragile, need a better way to set this on the instance for first boot
     $SetupState = "new"
@@ -127,7 +129,10 @@ Write-Status -Sev DEBUG "gcloudrig-boot.ps1 started"
 $GCRLABEL="gcloudrig"
 $GamesDiskName="gcloudrig-games"
 
-$SetupScriptUrl=Get-GceMetadata -Path "gcloudrig/setup-script-gcs-url"
+$SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
+if (Get-GceMetadata -Path "project/attributes" | Select-String $SetupScriptUrlAttribute) {
+  $SetupScriptUrl=(Get-GceMetadata -Path project/attributes/$SetupScriptUrlAttribute)
+}
 $ZoneName=(Get-GceMetadata -Path "instance/zone" | Split-Path -Leaf)
 $InstanceName=(Get-GceMetadata -Path "instance/name")
 $Instance=(Get-GceInstance $InstanceName -Zone "$ZoneName")
@@ -137,7 +142,7 @@ MountGamesDisk
 
 # if set then we want to install software
 If ($SetupScriptUrl) {
-  Run-GCloudRig-Setup
+  Run-Software-Setup
 }
 
 Write-Status -Sev DEBUG "gcloudrig-boot.ps1 finished"
