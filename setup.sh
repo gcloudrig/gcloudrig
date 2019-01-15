@@ -20,10 +20,12 @@ gcloudrig_create_instance_group
 while read -n 1 -p "Would you like to automatically install some things? [y/n] " ; do
   case $REPLY in
     y|Y)
+      echo
       gcloudrig_enable_software_setup
       break
       ;;
     n|N)
+      echo
       break
       ;;
   esac
