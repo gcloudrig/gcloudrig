@@ -1,7 +1,7 @@
 Function Write-Status {
   Param(
-    [parameter(Mandatory=$true),ValueFromPipeLine=$true] [String] $Text,
-    [String] $Sev = "INFO",
+    [parameter(Mandatory=$true,ValueFromPipeLine=$true)] [String] $Text,
+    [String] $Sev = "INFO"
   )
   "$(Date) $Sev $Text" | Out-File "c:\gcloudrig-boot.txt" -Append
   gcloud logging write gcloudrig-install --severity="$Sev" "$Text"
@@ -107,7 +107,7 @@ $Instance=(Get-GceInstance $InstanceName -Zone "$ZoneName")
 MountGamesDisk
 
 # if set then we want to install software
-If ($SetupScripUrl) {
+If ($SetupScriptUrl) {
   Run-GCloudRig-Setup
 }
 
