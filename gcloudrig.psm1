@@ -390,7 +390,6 @@ Function Download-File {
 }
 
 Function Bootstrap-gCloudRigInstall {
-  Param([parameter(Mandatory=$true)] [String] $Password)
 
   # set state
   Set-Setup-State "bootstrap"
@@ -405,10 +404,11 @@ Function Bootstrap-gCloudRigInstall {
   secedit /configure /db c:\windows\security\local.sdb /cfg "c:\secpol.cfg" /areas SECURITYPOLICY
   Remove-Item -Force "c:\secpol.cfg" -Confirm:$false
 
-  # create the gcloudrig user
-  $SecurePass = ConvertTo-SecureString $Password -AsPlainText -Force
-  New-LocalUser "gcloudrig" -Password $SecurePass -PasswordNeverExpires
-  Add-LocalGroupMember -Group "Administrators" -Member "gcloudrig"
+  # create a new account and password (in Administrators by default)
+  $Password=gcloud compute reset-windows-password "$InstanceName" --user "gcloudrig" --zone "$ZoneName" --format "value(password)"
+
+  # TODO: put this somewhere safer
+  Write-Status "user account created/reset; username:gcloudrig; password:$Password"
 
   # set up autologin
   Set-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" "AutoAdminLogon" -Value "1" -type String

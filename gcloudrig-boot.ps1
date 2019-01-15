@@ -67,14 +67,8 @@ Function Start-Bootstrap {
     Copy-Item "$Home\Desktop\gcloudrig.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig\" -Force
     Import-Module gCloudRig
 
-    # create a new account and password
-    $Password=gcloud compute reset-windows-password "$InstanceName" --user "gcloudrig" --zone "$ZoneName" --format "value(password)"
-
-    # TODO: put this somewhere safer
-    Write-Status "user account created/reset; username:gcloudrig; password:$Password"
-
     # this will force a reboot when finished
-    Bootstrap-gCloudRigInstall -Password "$Password"
+    Bootstrap-gCloudRigInstall
   } else {
     Write-Status -Sev ERROR "download of gcloudrig.psm1 failed!"
     # TODO: should we reboot here to force a retry or just retry now?
