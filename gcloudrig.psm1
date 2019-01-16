@@ -148,6 +148,7 @@ workflow Install-gCloudRig {
     $ZTEXE=(Join-Path $ZTDIR "zerotier-one_x64.exe")
     if (Test-Path "$ZTDIR") {
 
+      Write-Status "ZeroTier installed. Not configured yet."
       # TODO: auth ZT during this install
       # needs an API token to sign in (will this work?)
       #$ZT_AUTHFILE=(Join-Path $ZTDIR "authtoken.secret")
@@ -383,9 +384,9 @@ Function Save-UrlToFile {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
   (New-Object System.Net.WebClient).DownloadFile($URL, $File)
   if (Test-Path $File) {
-    Write-Status "  downloaded $File"
+    Write-Status -Sev DEBUG "  downloaded $URL to $File"
   } else {
-    Write-Status "  download of $URL failed"
+    Write-Status -Sev DEBUG "  download of $URL failed"
     throw "download of $URL failed"
   }
 }

@@ -60,7 +60,8 @@ function InitNewDisk {
 }
 
 Function Start-Bootstrap {
-  # download installer module from GCS
+  Write-Status "Start-Bootstrap"
+  Write-Status -Sev DEBUG "download installer module from $SetupScriptUrl"
   & gsutil cp "$SetupScriptUrl" "$Home\Desktop\gcloudrig.psm1" | Write-Status "c:\gcloudrig-setup.txt"
   if (Test-Path "$Home\Desktop\gcloudrig.psm1") {
     New-Item -ItemType directory -Path "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig" -Force
@@ -76,6 +77,7 @@ Function Start-Bootstrap {
 }
 
 Function Run-Software-Setup {
+  Write-Status "Run-Software-Setup"
   # Setup states should be
   # 1. new
   # 2. boostrap
