@@ -291,10 +291,10 @@ workflow Install-gCloudRig {
     & c:\gcloudrig\downloads\parsec-windows.exe
 
     # advanced settings: see https://parsec.tv/config/
-    $ParsecConfig = "C:\Users\%username%\AppData\Roaming\Parsec\config.txt"
+    $ParsecConfig = "$Env:AppData\Parsec\config.txt"
 
     # enable hosting
-    "app_host=1" | Out-File $ParsecConfig -Append
+    "app_host=1" | Out-File $ParsecConfig
 
     # TODO lock to ZeroTier VPN
     #"network_ip_address=$ZT_IP_addr" | Out-File $ParsecConfig
