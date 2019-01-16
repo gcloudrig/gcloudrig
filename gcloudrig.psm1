@@ -421,7 +421,13 @@ Function Bootstrap-gCloudRigInstall {
   # write the startup job (to be run only for the gcloudrig user)
 $StartupCommands = @'
 if ($env:USERNAME -eq "gcloudrig") {
-  $SetupState=Get-GceMetadata -Path "instance/attributes/gcloudrig-setup-state"
+  $SetupStateExists=(Get-GceMetadata -Path "instance/attributes" | Select-String "gcloudrig-setup-state")
+  if ($SetupStateExists) {
+    $SetupState=(Get-GceMetadata -Path "instance/attributes/gcloudrig-setup-state")
+  } else {
+    $SetupState="metadata not found"
+  }
+  
   switch($SetupState) {
     "bootstrap" {
       gcloud logging write gcloudrig-install "installer.ps1:Running gCloudRigInstaller..."
@@ -432,6 +438,19 @@ if ($env:USERNAME -eq "gcloudrig") {
     "installing" {
       gcloud logging write gcloudrig-install "installer.ps1:Resuming gCloudRigInstaller job..."
       Get-Job "gCloudRigInstaller" | Where {$_.State -eq "Suspended"} | Resume-Job
+      $job=Get-Job "gCloudRigInstaller"
+      if ($job.HasMoreData -eq $true) {
+        # store output from Install-gCloudRig job
+        Receive-Job -Job $job | Out-File "c:\gcloudrig\installer.txt" -Append
+      }
+      switch($job.State) {
+        "Suspended" {
+          Resume-Job -Job $job
+          }
+        "Failed" {
+          & gcloud logging write gcloudrig-install "installer.ps1:gCloudRigInstaller job FAILED..." 2>&1 | %{ "$_" }
+          }
+      }
       break
       }
     default {
