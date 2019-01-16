@@ -68,7 +68,7 @@ Function Start-Bootstrap {
     Import-Module gCloudRig
 
     # this will force a reboot when finished
-    Bootstrap-gCloudRigInstall
+    Install-Bootstrap
   } else {
     Write-Status -Sev ERROR "download of gcloudrig.psm1 failed!"
     # TODO: should we reboot here to force a retry or just retry now?

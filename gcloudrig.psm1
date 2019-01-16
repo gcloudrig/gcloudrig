@@ -4,7 +4,7 @@ workflow Install-gCloudRig {
     [parameter(Mandatory=$true)] [Boolean] $Set1610VideoModes
   )
 
-  Set-Setup-State "installing"
+  Set-SetupState "installing"
 
   Write-Status "Beginning of gcloudrig workflow..."
 
@@ -110,7 +110,7 @@ workflow Install-gCloudRig {
 
     # 7za needed for extracting some exes
     Write-Status "...installing 7za"
-    Download-File -URL "https://lg.io/assets/7za.zip" -File "c:\gcloudrig\downloads\7za.zip"
+    Save-UrlToFile -URL "https://lg.io/assets/7za.zip" -File "c:\gcloudrig\downloads\7za.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\7za.zip" -DestinationPath "c:\gcloudrig\7za"
 
     # package manager stuff
@@ -119,7 +119,7 @@ workflow Install-gCloudRig {
 
     # for Device Management
     Write-Status "...Powershell Device Management module"
-    Download-File -URL "https://gallery.technet.microsoft.com/Device-Management-7fad2388/file/65051/2/DeviceManagement.zip" -File "c:\gcloudrig\downloads\DeviceManagement.zip"
+    Save-UrlToFile -URL "https://gallery.technet.microsoft.com/Device-Management-7fad2388/file/65051/2/DeviceManagement.zip" -File "c:\gcloudrig\downloads\DeviceManagement.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\DeviceManagement.zip" -DestinationPath "c:\gcloudrig\downloads\DeviceManagement"
     Move-Item "c:\gcloudrig\downloads\DeviceManagement\Release" $PSHOME\Modules\DeviceManagement
     (Get-Content "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1").replace("PowerShellHostVersion = '3.0'", "PowerShellHostVersion = ''") | Out-File "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1"
@@ -138,7 +138,7 @@ workflow Install-gCloudRig {
     #Set-NetIsatapConfiguration -State disabled
 
     # install zerotier
-    Download-File -URL "https://download.zerotier.com/dist/ZeroTier%20One.msi" -File "c:\gcloudrig\downloads\zerotier.msi"
+    Save-UrlToFile -URL "https://download.zerotier.com/dist/ZeroTier%20One.msi" -File "c:\gcloudrig\downloads\zerotier.msi"
     & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\zerotier.msi -oc:\gcloudrig\downloads\zerotier
     (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
     Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
@@ -220,7 +220,7 @@ workflow Install-gCloudRig {
     # from https://cloud.google.com/compute/docs/gpus/add-gpus#install-driver-manual
     # TODO: parse https://storage.googleapis.com/nvidia-drivers-us-public/ for latest driver
     $GCEnVidiaDriver = "https://storage.googleapis.com/nvidia-drivers-us-public/GRID/386.09_grid_win10_server2016_64bit_international.exe"
-    Download-File -URL $GCEnVidiaDriver -File "c:\gcloudrig\downloads\nvidia.exe"
+    Save-UrlToFile -URL $GCEnVidiaDriver -File "c:\gcloudrig\downloads\nvidia.exe"
     & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\nvidia.exe -oc:\gcloudrig\downloads\nvidia
     & c:\gcloudrig\downloads\nvidia\setup.exe -noreboot -clean -s | Out-Null
 
@@ -251,7 +251,7 @@ workflow Install-gCloudRig {
     move C:\Windows\System32\Drivers\BasicDisplay.sys C:\Windows\System32\Drivers\BasicDisplay.old
 
     # install nvfbcenable
-    Download-File -URL "https://lg.io/assets/NvFBCEnable.zip" -File "c:\gcloudrig\downloads\NvFBCEnable.zip"
+    Save-UrlToFile -URL "https://lg.io/assets/NvFBCEnable.zip" -File "c:\gcloudrig\downloads\NvFBCEnable.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\NvFBCEnable.zip" -DestinationPath "c:\gcloudrig\NvFBCEnable"
     & c:\gcloudrig\NvFBCEnable\NvFBCEnable.exe -enable -noreset
     Write-Status "  done."
@@ -269,7 +269,7 @@ workflow Install-gCloudRig {
     Start-Service Audiosrv
 
     # download and install driver
-    Download-File -URL "http://vbaudio.jcedeveloppement.com/Download_CABLE/VBCABLE_Driver_Pack43.zip" -File "c:\gcloudrig\downloads\vbcable.zip"
+    Save-UrlToFile -URL "http://vbaudio.jcedeveloppement.com/Download_CABLE/VBCABLE_Driver_Pack43.zip" -File "c:\gcloudrig\downloads\vbcable.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\vbcable.zip" -DestinationPath "c:\gcloudrig\downloads\vbcable"
     (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\vbcable\vbaudio_cable64_win7.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer"
     Import-Certificate -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
@@ -285,7 +285,7 @@ workflow Install-gCloudRig {
 
   InlineScript {
     Write-Status "Installing Parsec..."
-    Download-File -URL "https://s3.amazonaws.com/parsec-build/package/parsec-windows.exe" -File "c:\gcloudrig\downloads\parsec-windows.exe"
+    Save-UrlToFile -URL "https://s3.amazonaws.com/parsec-build/package/parsec-windows.exe" -File "c:\gcloudrig\downloads\parsec-windows.exe"
     & c:\gcloudrig\downloads\parsec-windows.exe
 
     # advanced settings: see https://parsec.tv/config/
@@ -305,11 +305,11 @@ workflow Install-gCloudRig {
 
     # TODO: add param to make bnet optional
     # download bnetlauncher
-    Download-File -URL "http://madalien.com/pub/bnetlauncher/bnetlauncher_v18.zip" -File "c:\gcloudrig\downloads\bnetlauncher.zip"
+    Save-UrlToFile -URL "http://madalien.com/pub/bnetlauncher/bnetlauncher_v18.zip" -File "c:\gcloudrig\downloads\bnetlauncher.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\bnetlauncher.zip" -DestinationPath "c:\gcloudrig\bnetlauncher"
 
     # download bnet (needs to be launched twice because of some error)
-    Download-File -URL "https://www.battle.net/download/getInstallerForGame?os=win&locale=enUS&version=LIVE&gameProgram=BATTLENET_APP" -File "c:\gcloudrig\downloads\battlenet.exe"
+    Save-UrlToFile -URL "https://www.battle.net/download/getInstallerForGame?os=win&locale=enUS&version=LIVE&gameProgram=BATTLENET_APP" -File "c:\gcloudrig\downloads\battlenet.exe"
     & c:\gcloudrig\downloads\battlenet.exe --lang=english
     sleep 25
     Stop-Process -Name "battlenet"
@@ -317,7 +317,7 @@ workflow Install-gCloudRig {
 
     # TODO: add param to make steam optional
     # download steam
-    Download-File -URL "https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe" -File "c:\gcloudrig\downloads\steamsetup.exe"
+    Save-UrlToFile -URL "https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe" -File "c:\gcloudrig\downloads\steamsetup.exe"
     & c:\gcloudrig\downloads\steamsetup.exe /S | Out-Null
 
     # create the task to restart steam (such that we're not stuck in services Session 0 desktop when launching)
@@ -350,11 +350,11 @@ workflow Install-gCloudRig {
     # all is complete, remove the startup job
     Remove-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk" -Force
     Write-Status "------ All done! ------"
-    Set-Setup-State "complete"
+    Set-SetupState "complete"
   }
 }
 
-Function Set-Setup-State {
+Function Set-SetupState {
   Param([parameter(Mandatory=$true)] [String] $State)
 
   $InstanceName=(Get-GceMetadata -Path "instance/name")
@@ -374,7 +374,7 @@ Function Write-Status {
   gcloud logging write gcloudrig-install --severity="$Sev" "$Text"
 }
 
-Function Download-File {
+Function Save-UrlToFile {
   Param(
     [parameter(Mandatory=$true)] [String] $URL,
     [parameter(Mandatory=$true)] [String] $File
@@ -390,10 +390,10 @@ Function Download-File {
   }
 }
 
-Function Bootstrap-gCloudRigInstall {
+Function Install-Bootstrap {
 
   # set state
-  Set-Setup-State "bootstrap"
+  Set-SetupState "bootstrap"
   Write-Status "Bootstrapping gCloudRigInstall"
 
   # create gcloudrig dir for file storage and logging
