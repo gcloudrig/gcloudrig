@@ -363,7 +363,7 @@ Function Set-SetupState {
   $InstanceZone=(Get-GceMetadata -Path "instance/zone" | Split-Path -Leaf)
   #this cmdlet fails with a duplicate key error 
   #Set-GceInstance $InstanceName -AddMetadata @{ "instance/attributes/gcloudrig-setup-state" = "$State"; }
-  & gcloud compute instances add-metadata $InstanceName --zone=$InstanceZone --metadata gcloudrig-setup-state=$State
+  & gcloud compute instances add-metadata $InstanceName --zone=$InstanceZone --metadata gcloudrig-setup-state=$State 2>&1 | %{ "$_" }
   Write-Status -Sev DEBUG ("changed state to $State")
 }
 
@@ -373,7 +373,7 @@ Function Write-Status {
     [String] $Sev = "INFO"
   )
   "$(Date) $Sev $Text" | Out-File "c:\gcloudrig\installer.txt" -Append
-  gcloud logging write gcloudrig-install --severity="$Sev" "$Text"
+  & gcloud logging write gcloudrig-install --severity="$Sev" "$Text" 2>&1 | %{ "$_" }
 }
 
 Function Save-UrlToFile {
@@ -433,13 +433,13 @@ if ($env:USERNAME -eq "gcloudrig") {
   
   switch($SetupState) {
     "bootstrap" {
-      gcloud logging write gcloudrig-install "installer.ps1:Running gCloudRigInstaller..."
+      & gcloud logging write gcloudrig-install "installer.ps1:Running gCloudRigInstaller..." 2>&1 | %{ "$_" }
       Import-Module gCloudRig
       Install-gCloudRig -JobName gCloudRigInstaller -TimeZone "Pacific Standard Time" -Set1610VideoModes $true -AsJob
       break
       }
     "installing" {
-      gcloud logging write gcloudrig-install "installer.ps1:Resuming gCloudRigInstaller job..."
+      & gcloud logging write gcloudrig-install "installer.ps1:Resuming gCloudRigInstaller job..." 2>&1 | %{ "$_" }
       Get-Job "gCloudRigInstaller" | Where {$_.State -eq "Suspended"} | Resume-Job
       $job=Get-Job "gCloudRigInstaller"
       if ($job.HasMoreData -eq $true) {
@@ -457,7 +457,7 @@ if ($env:USERNAME -eq "gcloudrig") {
       break
       }
     default {
-      gcloud logging write gcloudrig-install ("installer.ps1 called with state: {0}" -f $SetupState)
+      & gcloud logging write gcloudrig-install ("installer.ps1 called with state: {0}" -f $SetupState) 2>&1 | %{ "$_" }
       }
   }
 }

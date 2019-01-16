@@ -62,7 +62,7 @@ function InitNewDisk {
 Function Start-Bootstrap {
   Write-Status "Start-Bootstrap"
   Write-Status -Sev DEBUG "download installer module from $SetupScriptUrl"
-  & gsutil cp "$SetupScriptUrl" "$Home\Desktop\gcloudrig.psm1" | Write-Status "c:\gcloudrig-setup.txt"
+  & gsutil cp "$SetupScriptUrl" "$Home\Desktop\gcloudrig.psm1" 2>&1 | %{ "$_" }
   if (Test-Path "$Home\Desktop\gcloudrig.psm1") {
     New-Item -ItemType directory -Path "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig" -Force
     Copy-Item "$Home\Desktop\gcloudrig.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig\" -Force
