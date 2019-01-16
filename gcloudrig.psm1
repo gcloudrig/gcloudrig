@@ -394,12 +394,12 @@ Function Save-UrlToFile {
 
 Function Install-Bootstrap {
 
+  # create gcloudrig dir for file storage and logging
+  New-Item -ItemType directory -Path "c:\gcloudrig" -Force
+
   # set state
   Set-SetupState "bootstrap"
   Write-Status "Bootstrapping gCloudRigInstall"
-
-  # create gcloudrig dir for file storage and logging
-  New-Item -ItemType directory -Path "c:\gcloudrig" -Force
 
   # disable password complexity (so people can choose whatever password they want)
   secedit /export /cfg "c:\secpol.cfg"
