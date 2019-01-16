@@ -94,6 +94,41 @@ workflow Install-gCloudRig {
   Write-Status "  done."
 
   InlineScript {
+    Write-Status "Creating shortcuts and install other tooling..."
+    # this needs to be done before any software installs
+
+    # create shortcut to disconnect
+    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut("$home\Desktop\DisconnectRDP.lnk")
+    $Shortcut.TargetPath = "C:\Windows\System32\cmd.exe"
+    $Shortcut.Arguments = @'
+/c "for /F "tokens=1 delims=^> " %i in ('""%windir%\system32\qwinsta.exe" | "%windir%\system32\find.exe" /I "^>rdp-tcp#""') do "%windir%\system32\tscon.exe" %i /dest:console"
+'@
+    $Shortcut.Save()
+    $bytes = [System.IO.File]::ReadAllBytes("$home\Desktop\Disconnect.lnk")
+    $bytes[0x15] = $bytes[0x15] -bor 0x20
+    [System.IO.File]::WriteAllBytes("$home\Desktop\Disconnect.lnk", $bytes)
+
+    # 7za needed for extracting some exes
+    Write-Status "...installing 7za"
+    Download-File -URL "https://lg.io/assets/7za.zip" -File "c:\gcloudrig\downloads\7za.zip"
+    Expand-Archive -LiteralPath "c:\gcloudrig\downloads\7za.zip" -DestinationPath "c:\gcloudrig\7za"
+
+    # package manager stuff
+    Write-Status "...NuGet Package Provider"
+    Install-PackageProvider -Name NuGet -Force
+
+    # for Device Management
+    Write-Status "...Powershell Device Management module"
+    Download-File -URL "https://gallery.technet.microsoft.com/Device-Management-7fad2388/file/65051/2/DeviceManagement.zip" -File "c:\gcloudrig\downloads\DeviceManagement.zip"
+    Expand-Archive -LiteralPath "c:\gcloudrig\downloads\DeviceManagement.zip" -DestinationPath "c:\gcloudrig\downloads\DeviceManagement"
+    Move-Item "c:\gcloudrig\downloads\DeviceManagement\Release" $PSHOME\Modules\DeviceManagement
+    (Get-Content "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1").replace("PowerShellHostVersion = '3.0'", "PowerShellHostVersion = ''") | Out-File "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1"
+    Import-Module DeviceManagement
+
+    Write-Status "done."
+  }
+
+  InlineScript {
     Write-Status "Installing VPN..."
 
     # disable ipv6 
@@ -132,43 +167,9 @@ workflow Install-gCloudRig {
       # use ZT IP addr to lock down Parsec and VNC
     }
 
-    Write-Status "  done."
-  }
-
-  InlineScript {
-    Write-Status "Creating shortcuts and install other tooling..."
-
-    # create shortcut to disconnect
-    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut("$home\Desktop\DisconnectRDP.lnk")
-    $Shortcut.TargetPath = "C:\Windows\System32\cmd.exe"
-    $Shortcut.Arguments = @'
-/c "for /F "tokens=1 delims=^> " %i in ('""%windir%\system32\qwinsta.exe" | "%windir%\system32\find.exe" /I "^>rdp-tcp#""') do "%windir%\system32\tscon.exe" %i /dest:console"
-'@
-    $Shortcut.Save()
-    $bytes = [System.IO.File]::ReadAllBytes("$home\Desktop\Disconnect.lnk")
-    $bytes[0x15] = $bytes[0x15] -bor 0x20
-    [System.IO.File]::WriteAllBytes("$home\Desktop\Disconnect.lnk", $bytes)
-
-    # 7za needed for extracting some exes
-    Write-Status "...installing 7za"
-    Download-File -URL "https://lg.io/assets/7za.zip" -File "c:\gcloudrig\downloads\7za.zip"
-    Expand-Archive -LiteralPath "c:\gcloudrig\downloads\7za.zip" -DestinationPath "c:\gcloudrig\7za"
-
-    # package manager stuff
-    Write-Status "...NuGet Package Provider"
-    Install-PackageProvider -Name NuGet -Force
-
-    # for Device Management
-    Write-Status "...Powershell Device Management module"
-    Download-File -URL "https://gallery.technet.microsoft.com/Device-Management-7fad2388/file/65051/2/DeviceManagement.zip" -File "c:\gcloudrig\downloads\DeviceManagement.zip"
-    Expand-Archive -LiteralPath "c:\gcloudrig\downloads\DeviceManagement.zip" -DestinationPath "c:\gcloudrig\downloads\DeviceManagement"
-    Move-Item "c:\gcloudrig\downloads\DeviceManagement\Release" $PSHOME\Modules\DeviceManagement
-    (Get-Content "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1").replace("PowerShellHostVersion = '3.0'", "PowerShellHostVersion = ''") | Out-File "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1"
-    Import-Module DeviceManagement
-
     # install tightvnc
-    Write-Status "...TightVNC"
-    Download-File -URL "http://www.tightvnc.com/download/2.8.5/tightvnc-2.8.5-gpl-setup-64bit.msi" -File "c:\gcloudrig\downloads\tightvnc.msi"
+    Write-Status "Installing TightVNC..."
+    Save-UrlToFile -URL "http://www.tightvnc.com/download/2.8.5/tightvnc-2.8.5-gpl-setup-64bit.msi" -File "c:\gcloudrig\downloads\tightvnc.msi"
     $psw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
     & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" SET_ACCEPTHTTPCONNECTIONS=1 VALUE_OF_ACCEPTHTTPCONNECTIONS=0 | Out-Null
     #Stop-Service -Name TightVNC -ErrorAction SilentlyContinue
@@ -178,7 +179,7 @@ workflow Install-gCloudRig {
     # TODO restart VNC service to pickup IpAccessControl
     #Start-Service -Name TightVNC -ErrorAction SilentlyContinue
     
-    Write-Status "done."
+    Write-Status "  done."
   }
 
   InlineScript {
