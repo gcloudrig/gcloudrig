@@ -98,15 +98,16 @@ workflow Install-gCloudRig {
     # this needs to be done before any software installs
 
     # create shortcut to disconnect
-    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut("$home\Desktop\DisconnectRDP.lnk")
+    $ShortcutName = "$home\Desktop\DisconnectRDP.lnk"
+    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($ShortcutName)
     $Shortcut.TargetPath = "C:\Windows\System32\cmd.exe"
     $Shortcut.Arguments = @'
 /c "for /F "tokens=1 delims=^> " %i in ('""%windir%\system32\qwinsta.exe" | "%windir%\system32\find.exe" /I "^>rdp-tcp#""') do "%windir%\system32\tscon.exe" %i /dest:console"
 '@
     $Shortcut.Save()
-    $bytes = [System.IO.File]::ReadAllBytes("$home\Desktop\Disconnect.lnk")
+    $bytes = [System.IO.File]::ReadAllBytes($ShortcutName)
     $bytes[0x15] = $bytes[0x15] -bor 0x20
-    [System.IO.File]::WriteAllBytes("$home\Desktop\Disconnect.lnk", $bytes)
+    [System.IO.File]::WriteAllBytes($ShortcutName, $bytes)
 
     # 7za needed for extracting some exes
     Write-Status "...installing 7za"
