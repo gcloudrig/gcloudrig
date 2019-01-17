@@ -60,7 +60,7 @@ function init_setup {
 
   if [ -n "$REGION" -a -n "$PROJECT_ID" ] ; then
     # settings at the top of this file
-    enable_required_glcoud_apis
+    enable_required_gcloud_apis
   else
     # use gcloud config configurations
     gcloud_config_setup
@@ -127,7 +127,7 @@ function gcloud_config_setup {
   fi
 
   # this is required before we can check for regions with GPUs
-  enable_required_glcoud_apis
+  enable_required_gcloud_apis
 
   # check default region is set, if not select one from regions with accelerators
   REGION="$(gcloud config get-value compute/region 2>/dev/null)"
@@ -157,7 +157,7 @@ function gcloud_projects_create {
   exit 1
 }
 
-function enable_required_glcoud_apis {
+function enable_required_gcloud_apis {
   # check if compute api is enabled, if not enable it
   local COMPUTEAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=compute.googleapis.com" --quiet)
   if [ "$COMPUTEAPI" != "compute.googleapis.com" ]; then
