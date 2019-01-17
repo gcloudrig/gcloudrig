@@ -2,6 +2,7 @@
 
 # exit on error
 set -e
+[ -n "$GCLOUDRIG_DEBUG" ] && set -x
 
 # full path to script dir
 DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
@@ -15,21 +16,22 @@ init_gcloudrig;
 gcloudrig_stop || echo -n
 
 # delete managed instance group
-gcloud compute instance-groups managed delete "$INSTANCEGROUP" --region "$REGION" || echo -n
+gcloudrig_delete_instance_group 
 
-# delete instance templates
-gcloud compute instance-templates delete "$INSTANCETEMPLATE" || echo -n
-
-# delete image
-gcloud compute images delete "$IMAGE" || echo -n
+# delete images
+images=()
+mapfile -t images < <(gcloud compute images list \
+  --format "value(name)" \
+  --filter "labels.$GCRLABEL=true")
+for image in "${images[@]}"; do
+  gcloud compute images delete "$image" || echo -n
+done
 
 # delete snapshots
 SNAPSHOTS=()
 mapfile -t SNAPSHOTS < <(gcloud compute snapshots list \
   --format "value(name)" \
---filter "labels.$GCRLABEL=true")
-
-# remove the "latest=true" label from all existing gcloudrig snapshots
+  --filter "labels.$GCRLABEL=true")
 for SNAP in "${SNAPSHOTS[@]}"; do
-  gcloud compute snapshots delete "$SNAP"
+  gcloud compute snapshots delete "$SNAP" || echo -n
 done

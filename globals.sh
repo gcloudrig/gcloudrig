@@ -58,77 +58,139 @@ function init_setup {
 
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
-  if [ -z "$(gcloud config configurations list --filter "name=(gcloudrig)" --format "value(name)" --quiet)" ]; then
-    gcloud config configurations create "$CONFIGURATION" --quiet
-  fi
-
-  gcloud config configurations activate "$CONFIGURATION" --quiet
-
-  if [ -z "$PROJECT_ID" ]; then
-    PROJECT_ID="$(gcloud config get-value core/project --quiet)"
-  fi
-
-  if [ -z "$REGION" ]; then
-    REGION="$(gcloud config get-value compute/region --quiet)"
-  fi
-
-  # check if default project is set; if not, run 'gcloud init'
-  if [ -z "$PROJECT_ID" ]; then
-    gcloud init
-    PROJECT_ID="$(gcloud config get-value core/project --quiet)"
-    REGION="$(gcloud config get-value compute/region --quiet)"
-  fi
-
-  # check if compute api is enabled, if not enable it
-  COMPUTEAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=compute.googleapis.com" --quiet)
-  if [ "$COMPUTEAPI" != "compute.googleapis.com" ]; then
-    echo "Enabling Compute API..."
-    gcloud services enable compute.googleapis.com
-  fi
-
-  # check if logging api is enabled, if not enable it
-  LOGGINGAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=logging.googleapis.com" --quiet)
-  if [ "$LOGGINGAPI" != "logging.googleapis.com" ]; then
-    echo "Enabling Logging API..."
-    gcloud services enable logging.googleapis.com
-  fi
-
-  # check if a default region is set, if not re-run 'gcloud init'
-  if  [ -z "$REGION" ]; then
-    gcloud init --skip-diagnostics
+  if [ -n "$REGION" -a -n "$PROJECT_ID" ] ; then
+    # settings at the top of this file
+    enable_required_glcoud_apis
+  else
+    # use gcloud config configurations
+    gcloud_config_setup
   fi
 
   # now set the zones
   init_common;
 }
 
+function gcloud_config_setup {
+  # setup a gcloud config manually so we can make sure the user only chooses a
+  # region that has GPUs
+
+  # activate the default config, or create if not found
+  if [ -z "$(gcloud config configurations list --filter "name=($CONFIGURATION)" --format "value(name)" --quiet)" ]; then
+    # create and activate
+    gcloud config configurations create "$CONFIGURATION" --quiet
+  else
+    gcloud config configurations activate "$CONFIGURATION" --quiet
+  fi
+
+  # setup auth
+  if [ -z "$(gcloud config get-value account 2>/dev/null)" ] ; then
+    ACCOUNTS="$(gcloud auth list --format "value(account)")"
+    if [ -n "$ACCOUNTS" ] ; then
+      echo
+      echo "Select account to use:"
+      select acct in $ACCOUNTS ; do
+        [ -n "$acct" ] && gcloud config set account $acct && break
+      done
+    else
+      gcloud auth login
+    fi
+  fi
+
+  # check if default project is set, if not select/create one
+  PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
+  if [ -z "$PROJECT_ID" ] ; then
+    declare -A PROJECTS
+    for line in $(gcloud projects list --format="csv[no-heading](name,project_id)") ; do
+      PROJECTS[${line%%,*}]=${line##*,} 
+    done
+    if [ "${#PROJECTS[@]}" -eq 0 ] ; then
+      # no existing projects, create one
+      PROJECT_ID="gcloudrig-${RANDOM}${RANDOM}"
+      gcloud_projects_create "$PROJECT_ID"
+    else
+      echo
+      echo "Select project to use:"
+      select project in ${!PROJECTS[@]} "new project" ; do
+        if [ -n "$project" ] ; then
+          if [ "$project" == "new project" ] ; then
+            # user requested to use a new project
+            PROJECT_ID="gcloudrig-${RANDOM}${RANDOM}"
+            gcloud_projects_create "$PROJECT_ID"
+          else
+            PROJECT_ID="${PROJECTS[$project]}"
+            gcloud config set project "$PROJECT_ID"
+          fi
+          break
+        fi
+      done
+    fi
+  fi
+
+  # this is required before we can check for regions with GPUs
+  enable_required_glcoud_apis
+
+  # check default region is set, if not select one from regions with accelerators
+  REGION="$(gcloud config get-value compute/region 2>/dev/null)"
+  if [ -z "$REGION" ] ; then
+    ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
+    if [ -n "$ACCELERATORREGIONS" ] ; then
+      echo
+      echo "Select a region to use:"
+      select REGION in $ACCELERATORREGIONS ; do
+        [ -n "$REGION" ] && gcloud config set compute/region $REGION && break
+      done
+    else
+      echo >&2
+      echo "#################################################################" >&2
+      echo "ERROR: no regions with accelerator type \"$ACCELERATORTYPE\" found " >&2
+      exit 1
+    fi
+  fi
+}
+
+function gcloud_projects_create {
+  local PROJECT_ID="$1"
+
+  gcloud projects create "$PROJECT_ID" --name gcloudrig --set-as-default
+  echo "You need to enable billing, then re-run setup.sh"
+  echo "https://console.developers.google.com/project/${PROJECT_ID}/settings"
+  exit 1
+}
+
+function enable_required_glcoud_apis {
+  # check if compute api is enabled, if not enable it
+  local COMPUTEAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=compute.googleapis.com" --quiet)
+  if [ "$COMPUTEAPI" != "compute.googleapis.com" ]; then
+    echo "Enabling Compute API..."
+    gcloud services enable compute.googleapis.com
+  fi
+
+  # check if logging api is enabled, if not enable it
+  local LOGGINGAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=logging.googleapis.com" --quiet)
+  if [ "$LOGGINGAPI" != "logging.googleapis.com" ]; then
+    echo "Enabling Logging API..."
+    gcloud services enable logging.googleapis.com
+  fi
+}
+
 function init_common {
   GCSBUCKET="gs://$PROJECT_ID"
 
   local groupsize=0
-  local regionzones=()
-  local acceleratorzones=()
 
-  # get a list of zones in this region
-  mapfile -d ";" -t regionzones < <(gcloud compute regions describe "$REGION" \
-    --format="value(zones)")
-
-  # get a list of zones with accelerators
-  mapfile -d ";" -t acceleratorzones < <(gcloud compute accelerator-types list \
-    --filter "name=$ACCELERATORTYPE" \
-    --format "value(zone)")
-
-  # intersection
-  for zoneuri in "${regionzones[@]}"; do
-    local zone=""
-    zone="$(basename -- "$zoneuri")"
-    if [[ ${acceleratorzones[*]} =~ $zone ]]; then
-      ZONES="${ZONES},${zone}"
-    fi;
-  done
-
-  # expose a list of zones in this region that support the given accelerator type
-  ZONES="${ZONES:1}"
+  # get a comma separated list of zones with accelerators in the current region
+  ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
+  ZONES="${ZONES//[[:space:]]/,}"
+  if [ -z "$ZONES" ] ; then
+    gcloud config unset compute/zone --quiet
+    gcloud config unset compute/region --quiet
+    echo >&2
+    echo "#################################################################" >&2
+    echo "ERROR: There are no zones in $REGION with accelerator type \"$ACCELERATORTYPE\"" >&2
+    echo "Re-run ./setup.sh and choose a region from this list:" >&2
+    echo "$(gcloudrig_get_accelerator_zones)" >&2
+    exit 1
+  fi
 
   # get the number of instances currently running
   groupsize=$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(size)" --quiet || echo "0")
@@ -190,6 +252,14 @@ function gcloudrig_get_bootimage {
     --filter "labels.gcloudrig=true labels.latest=true"
 }
 
+# Get zones with accelerators in region $1
+# if $1 is not specified, all regions
+function gcloudrig_get_accelerator_zones {
+  local region="${1:-*}"
+  gcloud compute accelerator-types list \
+    --filter "zone:$region AND name=$ACCELERATORTYPE" \
+    --format "value(zone)"
+}
 
 
 ##################
@@ -269,22 +339,19 @@ function gcloudrig_update_instance_group {
 
 # deletes existing instance group and all templates
 function gcloudrig_delete_instance_group {
-  if ! [ -z "$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(name)" --quiet)" ]; then
+  if [ -n "$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(name)" --quiet)" ]; then
     gcloud compute instance-groups managed delete "$INSTANCEGROUP" \
       --region "$REGION" \
       --quiet
   fi
-
 
   # tidy up - delete all other templates
   local templates=()
   mapfile -t templates < <(gcloud compute instance-templates list \
     --format "value(name)" \
     --filter "properties.labels.gcloudrig=true")
-  for templates in ${templates[*]}; do
-    if ! [ "$newtemplate" == "$template" ]; then
-      gcloud compute instance-templates delete "$template" --quiet
-    fi
+  for template in "${templates[@]}"; do
+    gcloud compute instance-templates delete "$template" --quiet
   done
 }
 
