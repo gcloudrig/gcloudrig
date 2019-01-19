@@ -49,7 +49,13 @@ for SNAP in "${SNAPSHOTS[@]}"; do
   gcloud compute snapshots delete "$SNAP" || echo -n
 done
 
+# remove software install metadata
+gcloud compute project-info remove-metadata --keys "gcloudrig-setup-script-gcs-url" || echo -n
+
+# remove software install script
+gsutil rm "$GCSBUCKET/gcloudrig.psm1" || echo -n
+
 # delete 'gcloud config configuration'
-gcloud config configuration activate NONE || echo -n
-gcloud config configuration delete "$CONFIGURATION" 
+gcloud config configurations activate NONE || echo -n
+gcloud config configurations delete "$CONFIGURATION" 
 
