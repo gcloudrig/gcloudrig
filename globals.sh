@@ -20,6 +20,7 @@ INSTANCEGROUP="gcloudrig-group"
 INSTANCENAME="gcloudrig"
 SETUPTEMPLATE="gcloudrig-setup-template"
 CONFIGURATION="gcloudrig"
+WINDOWSUSER="gcloudrig"
 
 # other globals; overrides may be ignored
 REGION=""
