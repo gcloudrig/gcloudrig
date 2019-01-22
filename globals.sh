@@ -133,19 +133,24 @@ function gcloud_config_setup {
   # check default region is set, if not select one from regions with accelerators
   REGION="$(gcloud config get-value compute/region 2>/dev/null)"
   if [ -z "$REGION" ] ; then
-    ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
-    if [ -n "$ACCELERATORREGIONS" ] ; then
-      echo
-      echo "Select a region to use:"
-      select REGION in $ACCELERATORREGIONS ; do
-        [ -n "$REGION" ] && gcloud config set compute/region $REGION && break
-      done
-    else
-      echo >&2
-      echo "#################################################################" >&2
-      echo "ERROR: no regions with accelerator type \"$ACCELERATORTYPE\" found " >&2
-      exit 1
-    fi
+    gcloudrig_select_region
+  fi
+}
+
+function gcloudrig_select_region {
+
+  local ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
+  if [ -n "$ACCELERATORREGIONS" ] ; then
+    echo
+    echo "Select a region to use:"
+    select REGION in $ACCELERATORREGIONS ; do
+      [ -n "$REGION" ] && gcloud config set compute/region $REGION && break
+    done
+  else
+    echo >&2
+    echo "#################################################################" >&2
+    echo "ERROR: no regions with accelerator type \"$ACCELERATORTYPE\" found " >&2
+    exit 1
   fi
 }
 
@@ -271,16 +276,22 @@ function gcloudrig_get_accelerator_zones {
 # INSTANCE GROUP #
 ##################
 
-# creates regional managed instance group and gives it the base instance template
-function gcloudrig_create_instance_group {
-  local template="";
+function gcloudrig_create_instance_template {
+  local templateName="$1" # required
+  local imageFlags
 
-  echo "Creating initial template '$SETUPTEMPLATE'..."
-  gcloud compute instance-templates create "$SETUPTEMPLATE" \
+  if [ "$templateName" == "$SETUPTEMPLATE" ] ; then
+    # set up for initial boot
+    imageFlags="--image-family $IMAGEBASEFAMILY --image-project $IMAGEBASEPROJECT"
+  else
+    imageFlags="--image $(gcloudrig_get_bootimage)"
+  fi
+
+  echo "Creating instance template '$templateName'..."
+  gcloud compute instance-templates create "$templateName" \
       --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
       --boot-disk-type "$BOOTTYPE" \
-      --image-family "$IMAGEBASEFAMILY" \
-      --image-project "$IMAGEBASEPROJECT" \
+      $imageFlags \
       --labels "$GCRLABEL=true" \
       --machine-type "$INSTANCETYPE" \
       --maintenance-policy "TERMINATE" \
@@ -290,13 +301,28 @@ function gcloudrig_create_instance_group {
       --format "value(name)" \
       --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
       --quiet || echo
+}
+
+# creates regional managed instance group and gives it the base instance template
+function gcloudrig_create_instance_group {
+  local templateName
+  local bootImage="$(gcloudrig_get_bootimage)"
+
+  # if we don't have a custom boot image, assume we're in setup
+  if [ -z "$bootImage" ] ; then
+    templateName="$SETUPTEMPLATE"
+  else
+    templateName="gcloudrig-template-$(date +"%Y%m%d%H%M%S")"
+  fi
+
+  gcloudrig_create_instance_template "$templateName"
 
   echo "Creating managed instance group '$INSTANCEGROUP'..."
   gcloud compute instance-groups managed create "$INSTANCEGROUP" \
     --base-instance-name "$INSTANCENAME" \
     --region "$REGION" \
     --size "0" \
-    --template "$SETUPTEMPLATE" \
+    --template "$templateName" \
     --zones "$ZONES" \
     --format "value(name)" \
     --quiet
@@ -305,27 +331,11 @@ function gcloudrig_create_instance_group {
 # updates existing instance group with a new template that uses the latest image
 function gcloudrig_update_instance_group {
 
-  # get latest image
-  local image=""; image=$(gcloudrig_get_bootimage)
-
   # new template's name
-  local newtemplate=""; newtemplate="gcloudrig-template-$(date +"%Y%m%d%H%M%S")"
+  local newtemplate="gcloudrig-template-$(date +"%Y%m%d%H%M%S")"
 
   # create new template
-  echo "Creating instance template $newtemplate..."
-  gcloud compute instance-templates create "$newtemplate" \
-    --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
-    --boot-disk-type "$BOOTTYPE" \
-    --image "$image" \
-    --labels "$GCRLABEL=true" \
-    --machine-type "$INSTANCETYPE" \
-    --maintenance-policy "TERMINATE" \
-    --scopes "default,compute-rw" \
-    --no-boot-disk-auto-delete \
-    --no-restart-on-failure \
-    --format "value(name)" \
-    --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
-    --quiet
+  gcloudrig_create_instance_template "$newtemplate"
 
   # update instance group with the new template
   gcloud compute instance-groups managed set-instance-template "$INSTANCEGROUP" --region "$REGION" --template "$newtemplate" --format "value(name)" --quiet 
@@ -337,7 +347,7 @@ function gcloudrig_update_instance_group {
     --filter "properties.labels.gcloudrig=true")
   for template in "${templates[@]}"; do
     if ! [ "$newtemplate" == "$template" ]; then
-      gcloud compute instance-templates delete "$template" --format "value(name)" --quiet
+      gcloud compute instance-templates delete "$template" --format "value(name)" --quiet || echo -n
     fi
   done
 }
@@ -356,7 +366,7 @@ function gcloudrig_delete_instance_group {
     --format "value(name)" \
     --filter "properties.labels.gcloudrig=true")
   for template in "${templates[@]}"; do
-    gcloud compute instance-templates delete "$template" --quiet
+    gcloud compute instance-templates delete "$template" --quiet || echo -n
   done
 }
 
