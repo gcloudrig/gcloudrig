@@ -144,42 +144,12 @@ workflow Install-gCloudRig {
     (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
     Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
     & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi | Out-Null
-    
-    $ZTDIR="C:\ProgramData\ZeroTier\One"
-    $ZTEXE=(Join-Path $ZTDIR "zerotier-one_x64.exe")
-    if (Test-Path "$ZTDIR") {
-
-      Write-Status "ZeroTier installed. Not configured yet."
-      # TODO: auth ZT during this install
-      # needs an API token to sign in (will this work?)
-      #$ZT_AUTHFILE=(Join-Path $ZTDIR "authtoken.secret")
-      #$ZT_TOKEN | Out-File $AUTHFILE
-      
-      # TODO: join a network by ID (once auth is setup)
-      #$ZTEXE -q join $NETWORKID
-
-      # TODO enable Windows Network local discovery on ZT intf
-      
-      # get ZT network address
-      #$ZTNetwork = & $ZTEXE -q /network | ConvertFrom-Json
-      # parse for IPv4 address
-      #$ZTIPv4address = $ZTNetwork.assignedAddresses | Where{ $_ -like "*/24" }
-
-      # TODO: log the ZT IP address to SD
-      # use ZT IP addr to lock down Parsec and VNC
-    }
 
     # install tightvnc
     Write-Status "Installing TightVNC..."
     Save-UrlToFile -URL "http://www.tightvnc.com/download/2.8.5/tightvnc-2.8.5-gpl-setup-64bit.msi" -File "c:\gcloudrig\downloads\tightvnc.msi"
     $psw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
     & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /log c:\gcloudrig\tightvnc.msi.log /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" SET_ACCEPTHTTPCONNECTIONS=1 VALUE_OF_ACCEPTHTTPCONNECTIONS=0 2>&1 | Out-Null
-    #Stop-Service -Name TightVNC -ErrorAction SilentlyContinue
-    # TODO calculate ZTAddressRange
-    #$IpAccessControl = "{0}.1-{0}.254:0,0.0.0.0-255.255.255.255:1" -f $ZTNetworkAddress
-    #Set-ItemProperty "HKLM:\SOFTWARE\TightVNC\Server" "IpAccessControl" -Value $IpAccessControl
-    # TODO restart VNC service to pickup IpAccessControl
-    #Start-Service -Name TightVNC -ErrorAction SilentlyContinue
     
     Write-Status "  done."
   }
@@ -290,15 +260,6 @@ workflow Install-gCloudRig {
     Save-UrlToFile -URL "https://s3.amazonaws.com/parsec-build/package/parsec-windows.exe" -File "c:\gcloudrig\downloads\parsec-windows.exe"
     & c:\gcloudrig\downloads\parsec-windows.exe
 
-    # advanced settings: see https://parsec.tv/config/
-    $ParsecConfig = "$Env:AppData\Parsec\config.txt"
-
-    # enable hosting
-    "app_host=1" | Out-File $ParsecConfig
-
-    # TODO lock to ZeroTier VPN
-    #"network_ip_address=$ZT_IP_addr" | Out-File $ParsecConfig
-    #"network_adapter=$ZT_INTF" | Out-File $ParsecConfig
     Write-Status "  done."
   }
 
@@ -347,6 +308,60 @@ workflow Install-gCloudRig {
   Write-Status "Rebooting(6/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
+
+  InlineScript {
+    # create hardening script
+    $HardeningScript = "c:\gcloudrig\hardening.ps1"
+    $HardeningCommands = @'
+$ZTDIR="C:\ProgramData\ZeroTier\One"
+$ZTEXE=(Join-Path $ZTDIR "zerotier-one_x64.exe")
+if (Test-Path "$ZTDIR") {
+  # get ZT network address
+  $ZTNetwork = & $ZTEXE -q /network | ConvertFrom-Json
+  If ( $? ) {
+    # parse for IPv4 address
+    $ZTIPv4address = $ZTNetwork.assignedAddresses | Where{ $_ -like "*/24" }
+    $ZTNetworkAddress = $ZTIPv4address.Split(".")[0..2] -Join '.'
+  } Else {
+    Throw "Failed to get ZeroTier IPv4 address"
+  }
+} Else {
+  Throw "ZeroTier One not installed"
+}
+
+# Lockdown TightVNC
+Stop-Service -Name TightVNC -ErrorAction SilentlyContinue
+$IpAccessControl = "{0}.1-{0}.254:0,0.0.0.0-255.255.255.255:1" -f $ZTNetworkAddress
+Set-ItemProperty "HKLM:\SOFTWARE\TightVNC\Server" "IpAccessControl" -Value $IpAccessControl
+Start-Service -Name TightVNC -ErrorAction SilentlyContinue
+
+# Lockdown Parsec
+# advanced settings: see https://parsec.tv/config/
+$ParsecConfig = "$Env:AppData\Parsec\config.txt"
+If (Test-Path "$ParsecConfig") {
+  # enable hosting
+  "app_host=1" | Out-File $ParsecConfig -Append
+  
+  # lock down to ZeroTier network
+  "network_ip_address=$ZTIPv4address" | Out-File $ParsecConfig -Append
+
+  # TODO restrict to listening only on ZeroTier interface
+  #"network_adapter=$ZT_INTF" | Out-File $ParsecConfig -Append
+} Else {
+  Throw "$ParsecConfig not found"
+}
+'@
+    $HardeningCommands | Out-File $HardeningScript
+
+    $ShortcutPath = "$home\Desktop\Post Setup Security Hardening.lnk"
+    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($ShortcutPath)
+    $Shortcut.TargetPath = "powershell"
+    $Shortcut.Arguments = "-noexit -file $HardeningScript"
+    $Shortcut.Save()
+    $bytes = [System.IO.File]::ReadAllBytes($ShortcutPath)
+    $bytes[0x15] = $bytes[0x15] -bor 0x20
+    [System.IO.File]::WriteAllBytes($ShortcutPath, $bytes)
+  }
 
   InlineScript {
     # all is complete, remove the startup job
