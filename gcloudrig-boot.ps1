@@ -1,10 +1,13 @@
+# gcloudrig-boot.ps1
+#
+
 Function Write-Status {
   Param(
     [parameter(Mandatory=$true,ValueFromPipeLine=$true)] [String] $Text,
     [String] $Sev = "INFO"
   )
   "$Sev $Text" | Write-Output
-  gcloud logging write gcloudrig-install --severity="$Sev" "$Text"
+  New-GcLogEntry -Severity "$Sev" -LogName gcloudrig-install -TextPayload "$Text"
 }
 
 # restore/create games disk and mounts it if it's not already attached somewhere
@@ -19,7 +22,7 @@ function MountGamesDisk {
         Write-Status "Restoring games disk from snapshot $LatestSnapshotName..."
         $GamesDisk=(New-GceDisk -DiskName "$GamesDiskName" -Snapshot $Snapshot -Zone "$ZoneName")
       } Else {
-        Write-Status "Failed to get snapshot $LatestSnapshotName"
+        Write-Status -Sev ERROR "Failed to get snapshot $LatestSnapshotName"
       }
     } Else {
       Write-Status "Creating blank games disk..."
@@ -30,7 +33,7 @@ function MountGamesDisk {
 
   If ($GamesDisk) {
     If ($GamesDisk.Users -And ($GamesDisk.Users | Split-Path -Leaf) -Eq $Instance.Name) {
-      Write-Status "Games Disk is already attached!"
+      Write-Status -Sev DEBUG "Games Disk is already attached!"
     } Else {
       Write-Status "Attaching games disk..."
       Set-GceInstance $Instance -AddDisk $GamesDisk
@@ -53,15 +56,15 @@ function InitNewDisk {
       New-Partition -DriveLetter Z -UseMaximumSize -GptType '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}' |
       Format-Volume -FileSystem NTFS -NewFileSystemLabel "Games" -Confirm:$false
   } catch {
-    Write-Status "Failed to initialise Games disk: $_.Exception.Messager"
+    Write-Status -Sev ERROR "Failed to initialise Games disk: $_.Exception.Messager"
   } finally {
     Start-Service -Name ShellHWDetection -ErrorAction SilentlyContinue
   }
 }
 
 Function Start-Bootstrap {
-  Write-Status "Start-Bootstrap"
-  Write-Status -Sev DEBUG "download installer module from $SetupScriptUrl"
+  Write-Status -Sev DEBUG "gcloudrig-boot.ps1: Start-Bootstrap"
+  Write-Status -Sev DEBUG "gcloudrig-boot.ps1: download installer module from $SetupScriptUrl"
   & gsutil cp "$SetupScriptUrl" "$Home\Desktop\gcloudrig.psm1" 2>&1 | %{ "$_" }
   if (Test-Path "$Home\Desktop\gcloudrig.psm1") {
     New-Item -ItemType directory -Path "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig" -Force
@@ -77,7 +80,7 @@ Function Start-Bootstrap {
 }
 
 Function Run-Software-Setup {
-  Write-Status "Run-Software-Setup"
+  Write-Status -Sev DEBUG "gcloudrig-boot.ps1: Run-Software-Setup"
   # Setup states should be
   # 1. new
   # 2. boostrap

@@ -98,7 +98,7 @@ workflow Install-gCloudRig {
     # this needs to be done before any software installs
 
     # create shortcut to disconnect
-    $ShortcutName = "$home\Desktop\DisconnectRDP.lnk"
+    $ShortcutName = "$home\Desktop\Disconnect RDP.lnk"
     $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($ShortcutName)
     $Shortcut.TargetPath = "C:\Windows\System32\cmd.exe"
     $Shortcut.Arguments = @'
@@ -173,7 +173,7 @@ workflow Install-gCloudRig {
     Write-Status "Installing TightVNC..."
     Save-UrlToFile -URL "http://www.tightvnc.com/download/2.8.5/tightvnc-2.8.5-gpl-setup-64bit.msi" -File "c:\gcloudrig\downloads\tightvnc.msi"
     $psw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
-    & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" SET_ACCEPTHTTPCONNECTIONS=1 VALUE_OF_ACCEPTHTTPCONNECTIONS=0 | Out-Null
+    & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /log c:\gcloudrig\tightvnc.msi.log /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" SET_ACCEPTHTTPCONNECTIONS=1 VALUE_OF_ACCEPTHTTPCONNECTIONS=0 2>&1 | Out-Null
     #Stop-Service -Name TightVNC -ErrorAction SilentlyContinue
     # TODO calculate ZTAddressRange
     #$IpAccessControl = "{0}.1-{0}.254:0,0.0.0.0-255.255.255.255:1" -f $ZTNetworkAddress
@@ -373,7 +373,7 @@ Function Write-Status {
     [String] $Sev = "INFO"
   )
   "$(Date) $Sev $Text" | Out-File "c:\gcloudrig\installer.txt" -Append
-  & gcloud logging write gcloudrig-install --severity="$Sev" "$Text" 2>&1 | %{ "$_" }
+  New-GcLogEntry -Severity "$Sev" -LogName gcloudrig-install -TextPayload "$Text"
 }
 
 Function Save-UrlToFile {
@@ -411,7 +411,7 @@ Function Install-Bootstrap {
   $Password=gcloud compute reset-windows-password "$InstanceName" --user "gcloudrig" --zone "$ZoneName" --format "value(password)"
 
   # TODO: put this somewhere safer
-  Write-Status "user account created/reset; username:gcloudrig; password:$Password"
+  Write-Status "user account created/reset; username:gcloudrig; password:'$Password'"
 
   # set up autologin
   Set-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" "AutoAdminLogon" -Value "1" -type String
@@ -433,31 +433,40 @@ if ($env:USERNAME -eq "gcloudrig") {
   
   switch($SetupState) {
     "bootstrap" {
-      & gcloud logging write gcloudrig-install "installer.ps1:Running gCloudRigInstaller..." 2>&1 | %{ "$_" }
+      New-GcLogEntry -LogName gcloudrig-install -Severity DEBUG -TextPayload "installer.ps1:Running gCloudRigInstaller..."
       Import-Module gCloudRig
       Install-gCloudRig -JobName gCloudRigInstaller -TimeZone "Pacific Standard Time" -Set1610VideoModes $true -AsJob
       break
       }
     "installing" {
-      & gcloud logging write gcloudrig-install "installer.ps1:Resuming gCloudRigInstaller job..." 2>&1 | %{ "$_" }
+      New-GcLogEntry -LogName gcloudrig-install -Severity DEBUG -TextPayload "installer.ps1:Resuming gCloudRigInstaller job..."
       Get-Job "gCloudRigInstaller" | Where {$_.State -eq "Suspended"} | Resume-Job
       $job=Get-Job "gCloudRigInstaller"
       if ($job.HasMoreData -eq $true) {
         # store output from Install-gCloudRig job
-        Receive-Job -Job $job | Out-File "c:\gcloudrig\installer.txt" -Append
+        Receive-Job -Job $job 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
       }
       switch($job.State) {
         "Suspended" {
           Resume-Job -Job $job
           }
         "Failed" {
-          & gcloud logging write gcloudrig-install "installer.ps1:gCloudRigInstaller job FAILED..." 2>&1 | %{ "$_" }
+          New-GcLogEntry -LogName gcloudrig-install -Severity DEBUG -TextPayload "installer.ps1:gCloudRigInstaller job FAILED..."
           }
       }
       break
       }
+    "complete" {
+      $job=Get-Job "gCloudRigInstaller"
+      if ($job.HasMoreData -eq $true) {
+        # store output from Install-gCloudRig job
+        Receive-Job -Job $job 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+      }
+      # TODO put an "exit" here
+      break
+      }
     default {
-      & gcloud logging write gcloudrig-install ("installer.ps1 called with state: {0}" -f $SetupState) 2>&1 | %{ "$_" }
+      New-GcLogEntry -LogName gcloudrig-install -Severity DEBUG -TextPayload "installer.ps1 called with state: $SetupState"
       }
   }
 }
