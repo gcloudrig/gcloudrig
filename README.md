@@ -117,4 +117,4 @@ TODO
 ## Travelling?
 gcloudrig keeps your rig as a boot image and disk snapshot, both of which are globally available in GCE.
 
-To run your rig in a different part of the world, just `./setup.sh` again and change your default region.
+To run your rig in a different part of the world, just run `./change-region.sh` to change your default region, then run `./scale-up.sh`.
