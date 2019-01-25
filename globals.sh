@@ -67,6 +67,10 @@ function init_setup {
     gcloud_config_setup
   fi
 
+  # not all accounts seem to have a GPUS_ALL_REGIONS quota
+  # but if they do it must be manually increased
+  gcloudrig_check_quota_gpus_all_regions
+
   # now set the zones
   init_common;
 }
@@ -183,10 +187,6 @@ function init_common {
   GCSBUCKET="gs://$PROJECT_ID"
 
   local groupsize=0
-
-  # not all accounts seem to have a GPUS_ALL_REGIONS quota
-  # but if they do it must be manually increased
-  gcloudrig_check_quota_gpus_all_regions
 
   # get a comma separated list of zones with accelerators in the current region
   ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
