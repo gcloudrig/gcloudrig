@@ -421,11 +421,13 @@ function gcloudrig_enable_software_setup {
 }
 
 function wait_until_instance_group_is_stable {
+  set +e
   timeout 120s gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
   	--region "$REGION" \
     --quiet
 
   err=$?
+  set -e
 
   if [ "$err" -gt "0" ]; then
     gcloud logging read 'severity>=WARNING' \
