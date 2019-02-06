@@ -98,16 +98,12 @@ workflow Install-gCloudRig {
     # this needs to be done before any software installs
 
     # create shortcut to disconnect
-    New-Shortcut -shortcutPath "$home\Desktop\Disconnect RDP.lnk"
-      -targetPath = "C:\Windows\System32\cmd.exe"
-      -arguments = @'
+    New-Shortcut -shortcutPath "$home\Desktop\Disconnect RDP.lnk" -targetPath "C:\Windows\System32\cmd.exe" -arguments @'
 /c "for /F "tokens=1 delims=^> " %i in ('""%windir%\system32\qwinsta.exe" | "%windir%\system32\find.exe" /I "^>rdp-tcp#""') do "%windir%\system32\tscon.exe" %i /dest:console"
 '@
 
     # create shortcut to update nVidida drivers
-    New-Shortcut -shortcutPath "$home\Desktop\Update nVidia Drivers.lnk"
-      -targetPath = "powershell"
-      -arguments = "-noexit 'import gCloudRig; Install-NvidiaDrivers'"
+    New-Shortcut -shortcutPath "$home\Desktop\Update nVidia Drivers.lnk" -targetPath "powershell" -arguments "-noexit 'import-module gCloudRig; Install-NvidiaDrivers'"
 
     # 7za needed for extracting some exes
     Write-Status "...installing 7za"
@@ -346,9 +342,7 @@ If (Test-Path "$ParsecConfig") {
 '@
     $HardeningCommands | Out-File $HardeningScript
 
-    New-Shortcut -shortcutPath "$home\Desktop\Post Setup Security Hardening.lnk"
-      -targetPath = "powershell"
-      -arguments = "-noexit -file $HardeningScript"
+    New-Shortcut -shortcutPath "$home\Desktop\Post Setup Security Hardening.lnk" -targetPath "powershell" -arguments "-noexit -file $HardeningScript"
   }
 
   InlineScript {
@@ -549,9 +543,7 @@ if ($env:USERNAME -eq "gcloudrig") {
   $StartupCommands | Out-File "c:\gcloudrig\installer.ps1"
 
   # run the startup job as an admin
-  New-Shortcut -shortcutPath "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk"
-    -targetPath "powershell"
-    -arguments "-noexit -file c:\gcloudrig\installer.ps1"
+  New-Shortcut -shortcutPath "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk" -targetPath "powershell" -arguments "-noexit -file c:\gcloudrig\installer.ps1"
 
   Write-Status "Created gcloudrig user and startup job. Rebooting now(1/6)."
   Restart-Computer -Force
