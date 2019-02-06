@@ -11,8 +11,13 @@ Function Write-Status {
 }
 
 # restore/create games disk and mounts it if it's not already attached somewhere
-function MountGamesDisk {
+function Mount-GamesDisk {
   $GamesDiskNeedsInit=$false
+
+  $ZoneName=(Get-GceMetadata -Path "instance/zone" | Split-Path -Leaf)
+  $InstanceName=(Get-GceMetadata -Path "instance/name")
+  $Instance=(Get-GceInstance $InstanceName -Zone "$ZoneName")
+  
   $GamesDisk=(Get-GceDisk -DiskName "$GamesDiskName")
   If (-Not $GamesDisk) {
     $LatestSnapshotName=(gcloud compute snapshots list --format "value(name)" --filter "labels.$GCRLABEL=true labels.latest=true" --project (Get-GceMetadata -Path "project/project-id"))
@@ -38,7 +43,7 @@ function MountGamesDisk {
       Write-Status "Attaching games disk..."
       Set-GceInstance $Instance -AddDisk $GamesDisk
       if ($GamesDiskNeedsInit) {
-        InitNewDisk
+        Initialize-NewDisk
       }
     }
   } Else {
@@ -46,9 +51,9 @@ function MountGamesDisk {
   }
 }
 
-function InitNewDisk {
+function Initialize-NewDisk {
   try {
-    Write-Status "Initialising Games Disk..."
+    Write-Status "Initializing Games Disk..."
     # stop hardware detection service to avoid a pop-up dialog
     Stop-Service -Name ShellHWDetection -ErrorAction SilentlyContinue
     Get-Disk | Where partitionstyle -eq 'raw' |
@@ -62,61 +67,47 @@ function InitNewDisk {
   }
 }
 
-Function Start-Bootstrap {
-  Write-Status -Sev DEBUG "gcloudrig-boot.ps1: Start-Bootstrap"
-  Write-Status -Sev DEBUG "gcloudrig-boot.ps1: download installer module from $SetupScriptUrl"
-  & gsutil cp "$SetupScriptUrl" "$Home\Desktop\gcloudrig.psm1" 2>&1 | %{ "$_" }
-  if (Test-Path "$Home\Desktop\gcloudrig.psm1") {
-    New-Item -ItemType directory -Path "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig" -Force
-    Copy-Item "$Home\Desktop\gcloudrig.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig\" -Force
-    Import-Module gCloudRig
+Function Run-Software-Setup {
+  Write-Status -Sev DEBUG "gcloudrig-boot.ps1: Run-Software-Setup"
 
-    # this will force a reboot when finished
-    Install-Bootstrap
-  } else {
-    Write-Status -Sev ERROR "download of gcloudrig.psm1 failed!"
-    # TODO: should we reboot here to force a retry or just retry now?
+  # fail fast if install is complete
+  If (Test-Path $SetupCompleteFile) {
+    Write-Status -Sev DEBUG "gcloudrig-boot.ps1: $SetupCompleteFile found! all done."
+    return
+  }
+
+  $SetupStateExists=(Get-GceMetadata -Path "project/attributes" | Select-String $SetupStateAttribute)
+  if ($SetupStateExists) {
+    $SetupState=(Get-GceMetadata -Path "project/attributes/$SetupStateAttribute")
+    switch($SetupState) {
+      "new" {
+        if (Get-Module -ListAvailable -Name gCloudRig) {
+          Import-Module gCloudRig
+          Install-Bootstrap
+        } Else {
+          Write-Status -Sev ERROR "Cannot boostrap, failed to import gcloudrig.psm1"
+        }
+        break
+      }
+      default {
+        Write-Status -Sev DEBUG ("gcloudrig-boot.ps1: setup state $_")
+        break
+      }
+    }
+  } Else {
+    Write-Status -Sev DEBUG ("gcloudrig-boot.ps1: project/attributes/$SetupStateAttribute not set")
   }
 }
 
-Function Run-Software-Setup {
-  Write-Status -Sev DEBUG "gcloudrig-boot.ps1: Run-Software-Setup"
-  # Setup states should be
-  # 1. new
-  # 2. boostrap
-  # 3. installing
-  # 4. complete
-  $SetupStateExists=(Get-GceMetadata -Path "instance/attributes" | Select-String "gcloudrig-setup-state")
-  if ($SetupStateExists) {
-    $SetupState=(Get-GceMetadata -Path "instance/attributes/gcloudrig-setup-state")
-  } else {
-    # not set, assume this is first boot
-    # TODO: this is fragile, need a better way to set this on the instance for first boot
-    $SetupState = "new"
-  }
-  switch($SetupState) {
-    "new" { Start-Bootstrap; break }
-    "bootstrap" {
-      $ShortcutPath = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk"
-      If (Test-Path "$ShortcutPath") {
-        Write-Status -Sev DEBUG "gcloudrig-boot.ps1: state bootstrap, startup .lnk exists"
-      } Else {
-        Write-Status -Sev DEBUG "gcloudrig-boot.ps1: state bootstrap, startup .lnk missing"
-      }  
-      break
-      }
-    "installing" {
-      Write-Status -Sev DEBUG "gcloudrig-boot.ps1: state installing"
-      break
-      }
-    "complete" {
-      Write-Status -Sev DEBUG "gcloudrig-boot.ps1: state complete"
-      break
-      }
-    default {
-      Write-Status -Sev DEBUG ("gcloudrig-boot.ps1: unknown state {0}" -f $_)
-      break
-      }
+Function Update-GcloudRigModule {
+  if (Get-GceMetadata -Path "project/attributes" | Select-String $SetupScriptUrlAttribute) {
+    $SetupScriptUrl=(Get-GceMetadata -Path project/attributes/$SetupScriptUrlAttribute)
+
+    & gsutil cp $SetupScriptUrl "$Env:Temp\gcloudrig.psm1"
+    if (Test-Path "$Env:Temp\gcloudrig.psm1") {
+      New-Item -ItemType directory -Path "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig" -Force
+      Copy-Item "$Env:Temp\gcloudrig.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig\" -Force
+    }
   }
 }
 
@@ -127,21 +118,14 @@ Write-Status -Sev DEBUG "gcloudrig-boot.ps1 started"
 # these need to match globals.sh
 $GCRLABEL="gcloudrig"
 $GamesDiskName="gcloudrig-games"
-
 $SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
-if (Get-GceMetadata -Path "project/attributes" | Select-String $SetupScriptUrlAttribute) {
-  $SetupScriptUrl=(Get-GceMetadata -Path project/attributes/$SetupScriptUrlAttribute)
-}
-$ZoneName=(Get-GceMetadata -Path "instance/zone" | Split-Path -Leaf)
-$InstanceName=(Get-GceMetadata -Path "instance/name")
-$Instance=(Get-GceInstance $InstanceName -Zone "$ZoneName")
+$SetupStateAttribute="gcloudrig-setup-state"
 
-# attach games disk
-MountGamesDisk
+# this needs to match gcloudrig.psm1
+$SetupCompleteFile="C:\gcloudrig\installer.complete"
 
-# if set then we want to install software
-If ($SetupScriptUrl) {
-  Run-Software-Setup
-}
+Update-GcloudRigModule 
+Run-Software-Setup
+Mount-GamesDisk
 
 Write-Status -Sev DEBUG "gcloudrig-boot.ps1 finished"

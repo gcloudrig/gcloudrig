@@ -37,18 +37,18 @@ function init_gcloudrig {
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
   if [ -z "$PROJECT_ID" ]; then
-    PROJECT_ID="$(gcloud config get-value core/project --quiet)"
+    PROJECT_ID="$(gcloud config get-value core/project --quiet 2> /dev/null)"
   fi
 
   if [ -z "$REGION" ]; then
-    REGION="$(gcloud config get-value compute/region --quiet)"
+    REGION="$(gcloud config get-value compute/region --quiet 2> /dev/null)"
   fi
 
-  # if we still have a project id or region, bail and ask user to run setup
+  # if we still don't have a project id or region, bail and ask user to run setup
   if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
-    [ -z "$PROJECT_ID" ] && echo "Missing config 'core/project'"
-    [ -z "$REGION" ] && echo "Missing config 'compute/region'"
-    echo "Please run './setup.sh' or 'gcloud init' to re-initialize the existing configuration, [$CONFIGURATION]."
+    [ -z "$PROJECT_ID" ] && echo "Missing config 'core/project'" >&2
+    [ -z "$REGION" ] && echo "Missing config 'compute/region'" >&2
+    echo "Please run './setup.sh'" >&2
     exit 1
   fi
 
@@ -60,7 +60,7 @@ function init_setup {
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
   if [ -n "$REGION" -a -n "$PROJECT_ID" ] ; then
-    # settings at the top of this file
+    # using settings at the top of this file
     enable_required_gcloud_apis
   else
     # use gcloud config configurations
@@ -70,6 +70,9 @@ function init_setup {
   # not all accounts seem to have a GPUS_ALL_REGIONS quota
   # but if they do it must be manually increased
   gcloudrig_check_quota_gpus_all_regions
+
+  # create a GCS bucket to store Powershell module
+  gcloudrig_create_gcs_bucket
 
   # now set the zones
   init_common;
@@ -185,8 +188,9 @@ function enable_required_gcloud_apis {
 
 function init_common {
   GCSBUCKET="gs://$PROJECT_ID"
-
   local groupsize=0
+
+  gcloudrig_update_powershell_module 
 
   # get a comma separated list of zones with accelerators in the current region
   ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
@@ -215,7 +219,6 @@ function init_common {
 
   # the image 
   IMAGE=$(gcloudrig_get_bootimage)
-
   if [ -z "$IMAGE" ]; then
     IMAGE="$IMAGEFAMILY"
   fi
@@ -409,15 +412,37 @@ function gcloudrig_check_quota_gpus_all_regions {
 ##################
 
 function gcloudrig_enable_software_setup {
-  # create GCS bucket and upload script
-  echo "Creating GCS bucket $GCSBUCKET/ to store installer script..."
-  gsutil mb -p "$PROJECT_ID" -c regional -l "$REGION"  "$GCSBUCKET/" || echo "already exists?"
+  # set project level metadata that gcloudrig-boot.ps1 will check to start a
+  # software install
+  gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=new" --quiet
+}
 
-  echo "Copying software installer script to GCS..."
-  gsutil cp "$DIR/gcloudrig.psm1" "$GCSBUCKET/"
+# create GCS bucket, don't fail if it already exists
+function gcloudrig_create_gcs_bucket {
+  local err result
+
+  set +e
+  result="$(gsutil -q mb -p "$PROJECT_ID" -c regional \
+    -l "$REGION" "$GCSBUCKET/" 2>&1)"
+  err="$?"
+  if [ "$err" -gt 0 ] ; then
+    # catch errors, ignore "already exists"
+    if ! echo "$result" | grep -q "already exists" ; then
+      echo "$result" >&2
+      return "$err"
+    fi
+  fi
+  set -e
 
   # announce script's gcs url via project metadata
   gcloud compute project-info add-metadata --metadata "gcloudrig-setup-script-gcs-url=$GCSBUCKET/gcloudrig.psm1" --quiet
+}
+
+function gcloudrig_update_powershell_module {
+  # TODO only update if newer
+  local quiet=""
+  [ -n "$GCLOUDRIG_DEBUG" ] && quiet="-q"
+  gsutil $quiet cp "$DIR/gcloudrig.psm1" "$GCSBUCKET/"
 }
 
 function wait_until_instance_group_is_stable {

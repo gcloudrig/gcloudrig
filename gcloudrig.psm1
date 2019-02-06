@@ -346,22 +346,19 @@ If (Test-Path "$ParsecConfig") {
   }
 
   InlineScript {
-    # all is complete, remove the startup job
+    # all is complete, update setup state, remove the startup job
+    $(date) | Out-File "C:\gcloudrig\installer.complete"
+    Set-SetupState "complete"
     Remove-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk" -Force
     Write-Status "------ All done! ------"
-    Set-SetupState "complete"
   }
 }
 
 Function Set-SetupState {
   Param([parameter(Mandatory=$true)] [String] $State)
 
-  $InstanceName=(Get-GceMetadata -Path "instance/name")
-  $InstanceZone=(Get-GceMetadata -Path "instance/zone" | Split-Path -Leaf)
-  #this cmdlet fails with a duplicate key error 
-  #Set-GceInstance $InstanceName -AddMetadata @{ "instance/attributes/gcloudrig-setup-state" = "$State"; }
-  & gcloud compute instances add-metadata $InstanceName --zone=$InstanceZone --metadata gcloudrig-setup-state=$State 2>&1 | %{ "$_" }
-  Write-Status -Sev DEBUG ("changed state to $State")
+  & gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=$State" --quiet
+  Write-Status -Sev DEBUG ("changed setup state to $State")
 }
 
 Function Write-Status {
@@ -477,6 +474,8 @@ Function Install-Bootstrap {
   Remove-Item -Force "c:\secpol.cfg" -Confirm:$false
 
   # create a new account and password (in Administrators by default)
+  $ZoneName=(Get-GceMetadata -Path "instance/zone" | Split-Path -Leaf)
+  $InstanceName=(Get-GceMetadata -Path "instance/name")
   $Password=gcloud compute reset-windows-password "$InstanceName" --user "gcloudrig" --zone "$ZoneName" --format "value(password)"
 
   # TODO: put this somewhere safer
@@ -491,11 +490,12 @@ Function Install-Bootstrap {
   New-ItemProperty -Path "HKLM:Software\Microsoft\Windows\CurrentVersion\policies\system" -Name EnableLUA -PropertyType DWord -Value 0 -Force
 
   # write the startup job (to be run only for the gcloudrig user)
-$StartupCommands = @'
+  # TODO refactor this to just import-module gcloudrig and call a function
+  $StartupCommands = @'
 if ($env:USERNAME -eq "gcloudrig") {
-  $SetupStateExists=(Get-GceMetadata -Path "instance/attributes" | Select-String "gcloudrig-setup-state")
+  $SetupStateExists=(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-state")
   if ($SetupStateExists) {
-    $SetupState=(Get-GceMetadata -Path "instance/attributes/gcloudrig-setup-state")
+    $SetupState=(Get-GceMetadata -Path "project/attributes/gcloudrig-setup-state")
   } else {
     $SetupState="metadata not found"
   }
