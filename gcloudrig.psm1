@@ -98,16 +98,11 @@ workflow Install-gCloudRig {
     # this needs to be done before any software installs
 
     # create shortcut to disconnect
-    $ShortcutName = "$home\Desktop\Disconnect RDP.lnk"
-    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($ShortcutName)
-    $Shortcut.TargetPath = "C:\Windows\System32\cmd.exe"
-    $Shortcut.Arguments = @'
+    New-Shortcut -shortcutPath "$home\Desktop\Disconnect RDP.lnk"
+      -targetPath = "C:\Windows\System32\cmd.exe"
+      -arguments = @'
 /c "for /F "tokens=1 delims=^> " %i in ('""%windir%\system32\qwinsta.exe" | "%windir%\system32\find.exe" /I "^>rdp-tcp#""') do "%windir%\system32\tscon.exe" %i /dest:console"
 '@
-    $Shortcut.Save()
-    $bytes = [System.IO.File]::ReadAllBytes($ShortcutName)
-    $bytes[0x15] = $bytes[0x15] -bor 0x20
-    [System.IO.File]::WriteAllBytes($ShortcutName, $bytes)
 
     # 7za needed for extracting some exes
     Write-Status "...installing 7za"
@@ -353,14 +348,9 @@ If (Test-Path "$ParsecConfig") {
 '@
     $HardeningCommands | Out-File $HardeningScript
 
-    $ShortcutPath = "$home\Desktop\Post Setup Security Hardening.lnk"
-    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($ShortcutPath)
-    $Shortcut.TargetPath = "powershell"
-    $Shortcut.Arguments = "-noexit -file $HardeningScript"
-    $Shortcut.Save()
-    $bytes = [System.IO.File]::ReadAllBytes($ShortcutPath)
-    $bytes[0x15] = $bytes[0x15] -bor 0x20
-    [System.IO.File]::WriteAllBytes($ShortcutPath, $bytes)
+    New-Shortcut -shortcutPath "$home\Desktop\Post Setup Security Hardening.lnk"
+      -targetPath = "powershell"
+      -arguments = "-noexit -file $HardeningScript"
   }
 
   InlineScript {
@@ -405,6 +395,22 @@ Function Save-UrlToFile {
     Write-Status -Sev DEBUG "  download of $URL failed"
     throw "download of $URL failed"
   }
+}
+
+Function New-Shortcut {
+  Param(
+    [parameter(Mandatory=$true)] [String] $shortcutPath,
+    [parameter(Mandatory=$true)] [String] $targetPath,
+    [parameter(Mandatory=$true)] [String] $arguments
+  )
+
+  $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutPath)
+  $Shortcut.TargetPath = $targetPath
+  $Shortcut.Arguments = $arguments
+  $Shortcut.Save()
+  $bytes = [System.IO.File]::ReadAllBytes($shortcutPath)
+  $bytes[0x15] = $bytes[0x15] -bor 0x20
+  [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
 }
 
 Function Install-Bootstrap {
@@ -489,14 +495,9 @@ if ($env:USERNAME -eq "gcloudrig") {
   $StartupCommands | Out-File "c:\gcloudrig\installer.ps1"
 
   # run the startup job as an admin
-  $ShortcutPath = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk"
-  $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($ShortcutPath)
-  $Shortcut.TargetPath = "powershell"
-  $Shortcut.Arguments = "-noexit -file c:\gcloudrig\installer.ps1"
-  $Shortcut.Save()
-  $bytes = [System.IO.File]::ReadAllBytes($ShortcutPath)
-  $bytes[0x15] = $bytes[0x15] -bor 0x20
-  [System.IO.File]::WriteAllBytes($ShortcutPath, $bytes)
+  New-Shortcut -shortcutPath "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk"
+    -targetPath "powershell"
+    -arguments "-noexit -file c:\gcloudrig\installer.ps1"
 
   Write-Status "Created gcloudrig user and startup job. Rebooting now(1/6)."
   Restart-Computer -Force
