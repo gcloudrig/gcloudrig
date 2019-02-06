@@ -104,6 +104,11 @@ workflow Install-gCloudRig {
 /c "for /F "tokens=1 delims=^> " %i in ('""%windir%\system32\qwinsta.exe" | "%windir%\system32\find.exe" /I "^>rdp-tcp#""') do "%windir%\system32\tscon.exe" %i /dest:console"
 '@
 
+    # create shortcut to update nVidida drivers
+    New-Shortcut -shortcutPath "$home\Desktop\Update nVidia Drivers.lnk"
+      -targetPath = "powershell"
+      -arguments = "-noexit 'import gCloudRig; Install-NvidiaDrivers'"
+
     # 7za needed for extracting some exes
     Write-Status "...installing 7za"
     Save-UrlToFile -URL "https://lg.io/assets/7za.zip" -File "c:\gcloudrig\downloads\7za.zip"
@@ -182,14 +187,7 @@ workflow Install-gCloudRig {
 
   InlineScript {
     Write-Status "Installing video card drivers..."
-
-    # nvidia driver
-    # from https://cloud.google.com/compute/docs/gpus/add-gpus#install-driver-manual
-    # TODO: parse https://storage.googleapis.com/nvidia-drivers-us-public/ for latest driver
-    $GCEnVidiaDriver = "https://storage.googleapis.com/nvidia-drivers-us-public/GRID/386.09_grid_win10_server2016_64bit_international.exe"
-    Save-UrlToFile -URL $GCEnVidiaDriver -File "c:\gcloudrig\downloads\nvidia.exe"
-    & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\nvidia.exe -oc:\gcloudrig\downloads\nvidia
-    & c:\gcloudrig\downloads\nvidia\setup.exe -noreboot -clean -s | Out-Null
+    Install-NvidiaDrivers
 
     # set proper video modes
     # default: {*}S 720x480x8,16,32,64=1; 720x576x8,16,32,64=8032;SHV 1280x720x8,16,32,64 1680x1050x8,16,32,64 1920x1080x8,16,32,64 2048x1536x8,16,32,64=1; 1920x1440x8,16,32,64=1F; 640x480x8,16,32,64 800x600x8,16,32,64 1024x768x8,16,32,64=1FFF; 1920x1200x8,16,32,64=3F; 1600x900x8,16,32,64=3FF; 2560x1440x8,16,32,64 2560x1600x8,16,32,64=7B; 1600x1024x8,16,32,64 1600x1200x8,16,32,64=7F;1280x768x8,16,32,64 1280x800x8,16,32,64 1280x960x8,16,32,64 1280x1024x8,16,32,64 1360x768x8,16,32,64 1366x768x8,16,32,64=7FF; 1152x864x8,16,32,64=FFF;
@@ -411,6 +409,49 @@ Function New-Shortcut {
   $bytes = [System.IO.File]::ReadAllBytes($shortcutPath)
   $bytes[0x15] = $bytes[0x15] -bor 0x20
   [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
+}
+
+Function Install-NvidiaDrivers {
+  Param(
+    [String] $downloadDir = "c:\gcloudrig\downloads",
+    [String] $nvidiaDriverBucket = "nvidia-drivers-us-public"
+  )
+  # see https://cloud.google.com/compute/docs/gpus/add-gpus#install-driver-manual
+
+  $currentVersion = Get-Package | Where { $_.Name -like "NVIDIA Graphics Driver*" } | %{ $_.Version }
+  If (!$currentVersion) {
+    # assume this is a fresh install
+    $currentVersion=0
+  }
+
+  # Query GCS for the latest nVidia GRID driver
+  # download if newer than current install
+  Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" |
+   Where { $_.Name -like "*_grid_win10_server2016_64bit_international.exe" } |
+   Sort -property Name |
+   Select-Object -Last 1 |
+   ForEach-Object { 
+     $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
+     If ( $thisVersion -gt $currentVersion ) { 
+       $nvidiaDir = Join-Path $downloadDir "nvidia-$thisVersion"
+       $nvidiaSetup = Join-Path $nvidiaDir "setup.exe"
+       $outFile = Join-Path $downloadDir "nvidia-$thisVersion.exe"
+
+       Write-Status "Install-NvidiaDrivers: want to install $thisVersion (upgrade from: $currentVersion)"
+       Write-Status "Install-NvidiaDrivers: download {0}" -f $_.Name
+       Read-GcsObject -InputObject $_ -OutFile $outFile -Force
+       # if download succeeded, install
+       If (Test-Path $outFile) {
+         Write-Status "Install-NvidiaDrivers: extract $outFile"
+         & c:\gcloudrig\7za\7za x -y $outFile -o"$nvidiaDir" 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+         Write-Status "Install-NvidiaDrivers: run $nvidiaSetup"
+         & $nvidiaSetup -noreboot -clean -s 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+         Write-Status "Install-NvidiaDrivers: $nvidiaSetup done."
+       }
+     } Else { 
+       Write-Status "Install-NvidiaDrivers: current: $currentVersion >= latest: $thisVersion"
+     }
+   }
 }
 
 Function Install-Bootstrap {
