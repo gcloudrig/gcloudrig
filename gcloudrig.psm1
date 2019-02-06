@@ -454,6 +454,19 @@ Function Install-NvidiaDrivers {
    }
 }
 
+Function Update-GcloudRigModule {
+ 
+  $SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
+  if (Get-GceMetadata -Path "project/attributes" | Select-String $SetupScriptUrlAttribute) {
+    $SetupScriptUrl=(Get-GceMetadata -Path project/attributes/$SetupScriptUrlAttribute)
+
+    & gsutil cp $SetupScriptUrl "$Home\Desktop\gcloudrig.psm1"
+    if (Test-Path "$Home\Desktop\gcloudrig.psm1") {
+      Copy-Item "$Home\Desktop\gcloudrig.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig\" -Force
+    }
+  }
+}
+
 Function Install-Bootstrap {
 
   # create gcloudrig dir for file storage and logging
