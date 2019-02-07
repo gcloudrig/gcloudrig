@@ -422,6 +422,7 @@ function gcloudrig_enable_software_setup {
 # create GCS bucket, don't fail if it already exists
 function gcloudrig_create_gcs_bucket {
   local err result
+  GCSBUCKET="${GCSBUCKET:-gs://$PROJECT_ID}"
 
   set +e
   result="$(gsutil -q mb -p "$PROJECT_ID" -c regional \
