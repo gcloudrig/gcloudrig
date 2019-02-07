@@ -64,7 +64,7 @@ function init_setup {
     enable_required_gcloud_apis
   else
     # use gcloud config configurations
-    gcloud_config_setup
+    gcloudrig_config_setup
   fi
 
   # not all accounts seem to have a GPUS_ALL_REGIONS quota
@@ -78,7 +78,49 @@ function init_setup {
   init_common;
 }
 
-function gcloud_config_setup {
+function init_common {
+  GCSBUCKET="gs://$PROJECT_ID"
+  local groupsize=0
+
+  gcloudrig_update_powershell_module 
+
+  # get a comma separated list of zones with accelerators in the current region
+  ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
+  ZONES="${ZONES//[[:space:]]/,}"
+  if [ -z "$ZONES" ] ; then
+    gcloud config unset compute/zone --quiet
+    gcloud config unset compute/region --quiet
+    echo >&2
+    echo "#################################################################" >&2
+    echo "ERROR: There are no zones in $REGION with accelerator type \"$ACCELERATORTYPE\"" >&2
+    echo "Re-run ./setup.sh and choose a region from this list:" >&2
+    echo "$(gcloudrig_get_accelerator_zones)" >&2
+    exit 1
+  fi
+
+  # get the number of instances currently running
+  groupsize=$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(size)" --quiet || echo "0")
+
+  # if an instance is running, expose some more vars
+  if ! [ -z "$groupsize" ] && [ "$groupsize" -gt "0" ]; then
+    INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
+    ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
+    BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
+    gcloud config set compute/zone "$ZONE" --quiet;
+  fi
+
+  # the image 
+  IMAGE=$(gcloudrig_get_bootimage)
+  if [ -z "$IMAGE" ]; then
+    IMAGE="$IMAGEFAMILY"
+  fi
+}
+
+####################
+# Setup functions  #
+####################
+
+function gcloudrig_config_setup {
   # setup a gcloud config manually so we can make sure the user only chooses a
   # region that has GPUs
 
@@ -185,46 +227,6 @@ function enable_required_gcloud_apis {
     gcloud services enable logging.googleapis.com
   fi
 }
-
-function init_common {
-  GCSBUCKET="gs://$PROJECT_ID"
-  local groupsize=0
-
-  gcloudrig_update_powershell_module 
-
-  # get a comma separated list of zones with accelerators in the current region
-  ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
-  ZONES="${ZONES//[[:space:]]/,}"
-  if [ -z "$ZONES" ] ; then
-    gcloud config unset compute/zone --quiet
-    gcloud config unset compute/region --quiet
-    echo >&2
-    echo "#################################################################" >&2
-    echo "ERROR: There are no zones in $REGION with accelerator type \"$ACCELERATORTYPE\"" >&2
-    echo "Re-run ./setup.sh and choose a region from this list:" >&2
-    echo "$(gcloudrig_get_accelerator_zones)" >&2
-    exit 1
-  fi
-
-  # get the number of instances currently running
-  groupsize=$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(size)" --quiet || echo "0")
-
-  # if an instance is running, expose some more vars
-  if ! [ -z "$groupsize" ] && [ "$groupsize" -gt "0" ]; then
-    INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
-    ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
-    BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
-    gcloud config set compute/zone "$ZONE" --quiet;
-  fi
-
-  # the image 
-  IMAGE=$(gcloudrig_get_bootimage)
-  if [ -z "$IMAGE" ]; then
-    IMAGE="$IMAGEFAMILY"
-  fi
-}
-
-
 
 ####################
 # GETTERS (stdout) #
