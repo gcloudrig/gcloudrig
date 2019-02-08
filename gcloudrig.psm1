@@ -302,47 +302,21 @@ workflow Install-gCloudRig {
     # create hardening script
     $HardeningScript = "c:\gcloudrig\hardening.ps1"
     $HardeningCommands = @'
-$ZTDIR="C:\ProgramData\ZeroTier\One"
-$ZTEXE=(Join-Path $ZTDIR "zerotier-one_x64.exe")
-if (Test-Path "$ZTDIR") {
-  # get ZT network address
-  $ZTNetwork = & $ZTEXE -q /network | ConvertFrom-Json
-  If ( $? ) {
-    # parse for IPv4 address
-    $ZTIPv4address = $ZTNetwork.assignedAddresses | Where{ $_ -like "*/24" }
-    $ZTNetworkAddress = $ZTIPv4address.Split(".")[0..2] -Join '.'
-  } Else {
-    Throw "Failed to get ZeroTier IPv4 address"
-  }
+Import-Module gCloudRig;
+$ZTIPv4Address = Get-ZeroTierIPv4Address;
+If($ZTIPv4Address) {
+  Write-Host "ZeroTier IPv4 Address: $ZTIPv4Address";
+  Write-Host "Locking down TightVNC.."
+  Protect-TightVNC -ZTIPv4Address $ZTIPv4Address;
+  Write-Host "Locking down Parsec.."
+  Protect-Parsec -ZTIPv4Address $ZTIPv4Address;
 } Else {
-  Throw "ZeroTier One not installed"
-}
-
-# Lockdown TightVNC
-Stop-Service -Name TightVNC -ErrorAction SilentlyContinue
-$IpAccessControl = "{0}.1-{0}.254:0,0.0.0.0-255.255.255.255:1" -f $ZTNetworkAddress
-Set-ItemProperty "HKLM:\SOFTWARE\TightVNC\Server" "IpAccessControl" -Value $IpAccessControl
-Start-Service -Name TightVNC -ErrorAction SilentlyContinue
-
-# Lockdown Parsec
-# advanced settings: see https://parsec.tv/config/
-$ParsecConfig = "$Env:AppData\Parsec\config.txt"
-If (Test-Path "$ParsecConfig") {
-  # enable hosting
-  "app_host=1" | Out-File $ParsecConfig -Append
-  
-  # lock down to ZeroTier network
-  "network_ip_address=$ZTIPv4address" | Out-File $ParsecConfig -Append
-
-  # TODO restrict to listening only on ZeroTier interface
-  #"network_adapter=$ZT_INTF" | Out-File $ParsecConfig -Append
-} Else {
-  Throw "$ParsecConfig not found"
+  Write-Error "failed to get ZeroTier IPv4 Address";
 }
 '@
     $HardeningCommands | Out-File $HardeningScript
 
-    New-Shortcut -shortcutPath "$home\Desktop\Post Setup Security Hardening.lnk" -targetPath "powershell" -arguments "-noexit -file $HardeningScript"
+    New-Shortcut -shortcutPath "$home\Desktop\Post ZeroTier Setup Security.lnk" -targetPath "powershell" -arguments "-noexit -file $HardeningScript"
   }
 
   InlineScript {
@@ -455,6 +429,49 @@ Function Update-GcloudRigModule {
     if (Test-Path "$Home\Desktop\gcloudrig.psm1") {
       Copy-Item "$Home\Desktop\gcloudrig.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig\" -Force
     }
+  }
+}
+
+Function Get-ZeroTierIPv4Address {
+  $ZTDIR="C:\ProgramData\ZeroTier\One"
+  $ZTEXE=(Join-Path $ZTDIR "zerotier-one_x64.exe")
+  if (Test-Path "$ZTDIR") {
+    # get ZT network address
+    $ZTNetwork = & $ZTEXE -q /network | ConvertFrom-Json
+    If ($ZTNetwork) {
+      # parse for IPv4 address
+      Return $ZTNetwork.assignedAddresses | Where{ $_ -like "*/24" }
+    } Else {
+      Write-Error "Failed to get ZeroTier IPv4 address"
+      Return
+    }
+  } Else {
+    Write-Error "ZeroTier One not installed"
+    Return
+  }
+}
+
+Function Protect-TightVNC {
+  Param([Parameter(Mandatory=$true)] [String] $ZTIPv4address)
+  # Lockdown TightVNC to ZeroTier network only
+
+  $ZTNetworkAddress = $ZTIPv4address.Split(".")[0..2] -Join '.'
+  Stop-Service -Name 'TightVNC Server' -ErrorAction SilentlyContinue
+  $IpAccessControl = "{0}.1-{0}.254:0,0.0.0.0-255.255.255.255:1" -f $ZTNetworkAddress
+  Set-ItemProperty "HKLM:\SOFTWARE\TightVNC\Server" "IpAccessControl" -Value $IpAccessControl
+  Start-Service -Name 'TightVNC Server' -ErrorAction SilentlyContinue
+}
+
+Function Protect-Parsec {
+  Param([Parameter(Mandatory=$true)] [String] $ZTIPv4address)
+  # Lockdown Parsec to listen on ZeroTier IPv4 address only
+  # advanced settings: see https://parsec.tv/config/
+  $ParsecConfig = "$Env:AppData\Parsec\config.txt"
+  If (Test-Path "$ParsecConfig") {
+    # lock down to ZeroTier network
+    "network_ip_address=$ZTIPv4address" | Out-File $ParsecConfig -Append
+  } Else {
+    Write-Error "$ParsecConfig not found"
   }
 }
 
