@@ -27,17 +27,15 @@ for image in "${images[@]}"; do
   gcloud compute images delete "$image" || echo -n
 done
 
-# delete games disk, if left behind
+# delete disks, if left behind
 disks=()
 mapfile -t disks < <(gcloud compute disks list \
-  --filter="name:(gcloudrig-games)" \
   --format="csv[no-heading](name,zone)")
-for disk_zone in "${disks[@]}"; do
-  name="${disk_zone%%,*}"
-  zone="${disk_zone##*,}"
+for name_zone in "${disks[@]}"; do
+  name="${name_zone%%,*}"
+  zone="${name_zone##*,}"
   gcloud compute disks delete "$name" \
-    --zone "$zone" \
-    --quiet || echo -n
+    --zone "$zone" || echo -n
 done
 
 # delete snapshots
