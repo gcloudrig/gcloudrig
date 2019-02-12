@@ -27,6 +27,19 @@ for image in "${images[@]}"; do
   gcloud compute images delete "$image" || echo -n
 done
 
+# delete games disk, if left behind
+disks=()
+mapfile -t disks < <(gcloud compute disks list \
+  --filter="name:(gcloudrig-games)" \
+  --format="csv[no-heading](name,zone)")
+for disk_zone in "${disks[@]}"; do
+  name="${disk_zone%%,*}"
+  zone="${disk_zone##*,}"
+  gcloud compute disks delete "$name" \
+    --zone "$zone" \
+    --quiet || echo -n
+done
+
 # delete snapshots
 SNAPSHOTS=()
 mapfile -t SNAPSHOTS < <(gcloud compute snapshots list \
@@ -35,3 +48,13 @@ mapfile -t SNAPSHOTS < <(gcloud compute snapshots list \
 for SNAP in "${SNAPSHOTS[@]}"; do
   gcloud compute snapshots delete "$SNAP" || echo -n
 done
+
+# remove software install metadata
+gcloud compute project-info remove-metadata --keys "gcloudrig-setup-script-gcs-url" || echo -n
+
+# remove software install script
+gsutil rm "$GCSBUCKET/gcloudrig.psm1" || echo -n
+
+# delete 'gcloud config configuration'
+gcloud config configurations activate NONE || echo -n
+gcloud config configurations delete "$CONFIGURATION" 

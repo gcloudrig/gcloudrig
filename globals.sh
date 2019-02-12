@@ -20,6 +20,7 @@ INSTANCEGROUP="gcloudrig-group"
 INSTANCENAME="gcloudrig"
 SETUPTEMPLATE="gcloudrig-setup-template"
 CONFIGURATION="gcloudrig"
+WINDOWSUSER="gcloudrig"
 
 # other globals; overrides may be ignored
 REGION=""
@@ -36,18 +37,18 @@ function init_gcloudrig {
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
   if [ -z "$PROJECT_ID" ]; then
-    PROJECT_ID="$(gcloud config get-value core/project --quiet)"
+    PROJECT_ID="$(gcloud config get-value core/project --quiet 2> /dev/null)"
   fi
 
   if [ -z "$REGION" ]; then
-    REGION="$(gcloud config get-value compute/region --quiet)"
+    REGION="$(gcloud config get-value compute/region --quiet 2> /dev/null)"
   fi
 
-  # if we still have a project id or region, bail and ask user to run setup
+  # if we still don't have a project id or region, bail and ask user to run setup
   if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
-    [ -z "$PROJECT_ID" ] && echo "Missing config 'core/project'"
-    [ -z "$REGION" ] && echo "Missing config 'compute/region'"
-    echo "Please run './setup.sh' or 'gcloud init' to re-initialize the existing configuration, [$CONFIGURATION]."
+    [ -z "$PROJECT_ID" ] && echo "Missing config 'core/project'" >&2
+    [ -z "$REGION" ] && echo "Missing config 'compute/region'" >&2
+    echo "Please run './setup.sh'" >&2
     exit 1
   fi
 
@@ -59,12 +60,19 @@ function init_setup {
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
   if [ -n "$REGION" -a -n "$PROJECT_ID" ] ; then
-    # settings at the top of this file
+    # using settings at the top of this file
     enable_required_gcloud_apis
   else
     # use gcloud config configurations
     gcloud_config_setup
   fi
+
+  # not all accounts seem to have a GPUS_ALL_REGIONS quota
+  # but if they do it must be manually increased
+  gcloudrig_check_quota_gpus_all_regions
+
+  # create a GCS bucket to store Powershell module
+  gcloudrig_create_gcs_bucket
 
   # now set the zones
   init_common;
@@ -132,19 +140,24 @@ function gcloud_config_setup {
   # check default region is set, if not select one from regions with accelerators
   REGION="$(gcloud config get-value compute/region 2>/dev/null)"
   if [ -z "$REGION" ] ; then
-    ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
-    if [ -n "$ACCELERATORREGIONS" ] ; then
-      echo
-      echo "Select a region to use:"
-      select REGION in $ACCELERATORREGIONS ; do
-        [ -n "$REGION" ] && gcloud config set compute/region $REGION && break
-      done
-    else
-      echo >&2
-      echo "#################################################################" >&2
-      echo "ERROR: no regions with accelerator type \"$ACCELERATORTYPE\" found " >&2
-      exit 1
-    fi
+    gcloudrig_select_region
+  fi
+}
+
+function gcloudrig_select_region {
+
+  local ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
+  if [ -n "$ACCELERATORREGIONS" ] ; then
+    echo
+    echo "Select a region to use:"
+    select REGION in $ACCELERATORREGIONS ; do
+      [ -n "$REGION" ] && gcloud config set compute/region $REGION && break
+    done
+  else
+    echo >&2
+    echo "#################################################################" >&2
+    echo "ERROR: no regions with accelerator type \"$ACCELERATORTYPE\" found " >&2
+    exit 1
   fi
 }
 
@@ -175,8 +188,9 @@ function enable_required_gcloud_apis {
 
 function init_common {
   GCSBUCKET="gs://$PROJECT_ID"
-
   local groupsize=0
+
+  gcloudrig_update_powershell_module 
 
   # get a comma separated list of zones with accelerators in the current region
   ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
@@ -205,7 +219,6 @@ function init_common {
 
   # the image 
   IMAGE=$(gcloudrig_get_bootimage)
-
   if [ -z "$IMAGE" ]; then
     IMAGE="$IMAGEFAMILY"
   fi
@@ -266,16 +279,22 @@ function gcloudrig_get_accelerator_zones {
 # INSTANCE GROUP #
 ##################
 
-# creates regional managed instance group and gives it the base instance template
-function gcloudrig_create_instance_group {
-  local template="";
+function gcloudrig_create_instance_template {
+  local templateName="$1" # required
+  local imageFlags
 
-  echo "Creating initial template '$SETUPTEMPLATE'..."
-  gcloud compute instance-templates create "$SETUPTEMPLATE" \
+  if [ "$templateName" == "$SETUPTEMPLATE" ] ; then
+    # set up for initial boot
+    imageFlags="--image-family $IMAGEBASEFAMILY --image-project $IMAGEBASEPROJECT"
+  else
+    imageFlags="--image $(gcloudrig_get_bootimage)"
+  fi
+
+  echo "Creating instance template '$templateName'..."
+  gcloud compute instance-templates create "$templateName" \
       --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
       --boot-disk-type "$BOOTTYPE" \
-      --image-family "$IMAGEBASEFAMILY" \
-      --image-project "$IMAGEBASEPROJECT" \
+      $imageFlags \
       --labels "$GCRLABEL=true" \
       --machine-type "$INSTANCETYPE" \
       --maintenance-policy "TERMINATE" \
@@ -283,15 +302,30 @@ function gcloudrig_create_instance_group {
       --no-boot-disk-auto-delete \
       --no-restart-on-failure \
       --format "value(name)" \
-      --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-setup.ps1") \
+      --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
       --quiet || echo
+}
+
+# creates regional managed instance group and gives it the base instance template
+function gcloudrig_create_instance_group {
+  local templateName
+  local bootImage="$(gcloudrig_get_bootimage)"
+
+  # if we don't have a custom boot image, assume we're in setup
+  if [ -z "$bootImage" ] ; then
+    templateName="$SETUPTEMPLATE"
+  else
+    templateName="gcloudrig-template-$(date +"%Y%m%d%H%M%S")"
+  fi
+
+  gcloudrig_create_instance_template "$templateName"
 
   echo "Creating managed instance group '$INSTANCEGROUP'..."
   gcloud compute instance-groups managed create "$INSTANCEGROUP" \
     --base-instance-name "$INSTANCENAME" \
     --region "$REGION" \
     --size "0" \
-    --template "$SETUPTEMPLATE" \
+    --template "$templateName" \
     --zones "$ZONES" \
     --format "value(name)" \
     --quiet
@@ -300,27 +334,11 @@ function gcloudrig_create_instance_group {
 # updates existing instance group with a new template that uses the latest image
 function gcloudrig_update_instance_group {
 
-  # get latest image
-  local image=""; image=$(gcloudrig_get_bootimage)
-
   # new template's name
-  local newtemplate=""; newtemplate="gcloudrig-template-$(date +"%Y%m%d%H%M%S")"
+  local newtemplate="gcloudrig-template-$(date +"%Y%m%d%H%M%S")"
 
   # create new template
-  echo "Creating instance template $newtemplate..."
-  gcloud compute instance-templates create "$newtemplate" \
-    --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
-    --boot-disk-type "$BOOTTYPE" \
-    --image "$image" \
-    --labels "$GCRLABEL=true" \
-    --machine-type "$INSTANCETYPE" \
-    --maintenance-policy "TERMINATE" \
-    --scopes "default,compute-rw" \
-    --no-boot-disk-auto-delete \
-    --no-restart-on-failure \
-    --format "value(name)" \
-    --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
-    --quiet
+  gcloudrig_create_instance_template "$newtemplate"
 
   # update instance group with the new template
   gcloud compute instance-groups managed set-instance-template "$INSTANCEGROUP" --region "$REGION" --template "$newtemplate" --format "value(name)" --quiet 
@@ -332,7 +350,7 @@ function gcloudrig_update_instance_group {
     --filter "properties.labels.gcloudrig=true")
   for template in "${templates[@]}"; do
     if ! [ "$newtemplate" == "$template" ]; then
-      gcloud compute instance-templates delete "$template" --format "value(name)" --quiet
+      gcloud compute instance-templates delete "$template" --format "value(name)" --quiet || echo -n
     fi
   done
 }
@@ -351,23 +369,90 @@ function gcloudrig_delete_instance_group {
     --format "value(name)" \
     --filter "properties.labels.gcloudrig=true")
   for template in "${templates[@]}"; do
-    gcloud compute instance-templates delete "$template" --quiet
+    gcloud compute instance-templates delete "$template" --quiet || echo -n
   done
 }
 
+##################
+# QUOTA COMMANDS #
+##################
 
+function gcloudrig_get_project_quota_limits {
+  declare -gA QUOTAS
+  for line in $(gcloud compute project-info describe \
+    --project="$PROJECT_ID" \
+    --flatten="quotas[]" \
+    --format="csv[no-heading](quotas.metric,quotas.limit)") ; do
+    QUOTAS[${line%%,*}]="${line##*,}"
+  done
+}
 
+function gcloudrig_check_quota_gpus_all_regions {
+  if [ ! -v QUOTAS ] ; then
+    gcloudrig_get_project_quota_limits
+  fi
+
+  # if key exists in array
+  if [ -v "QUOTAS[GPUS_ALL_REGIONS]" ] ; then
+    # gcloud --format option sometimes outputs nothing if the value is 0.0
+    if [ -z "${QUOTAS[GPUS_ALL_REGIONS]}" -o "${QUOTAS[GPUS_ALL_REGIONS]}" == "0.0" ] ; then
+      echo "You have to manually request a quota increase for GPUS_ALL_REGIONS" >&2
+      echo "See https://cloud.google.com/compute/quotas#requesting_additional_quota" >&2
+      exit 1
+    else
+      echo "GPUS_ALL_REGIONS quota is ${QUOTAS["GPUS_ALL_REGIONS"]}"
+    fi
+  else
+    echo "no GPUS_ALL_REGIONS quota, good to go."
+  fi
+}
 
 ##################
 # OTHER COMMANDS #
 ##################
 
+function gcloudrig_enable_software_setup {
+  # set project level metadata that gcloudrig-boot.ps1 will check to start a
+  # software install
+  gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=new" --quiet
+}
+
+# create GCS bucket, don't fail if it already exists
+function gcloudrig_create_gcs_bucket {
+  local err result
+
+  set +e
+  result="$(gsutil -q mb -p "$PROJECT_ID" -c regional \
+    -l "$REGION" "$GCSBUCKET/" 2>&1)"
+  err="$?"
+  if [ "$err" -gt 0 ] ; then
+    # catch errors, ignore "already exists"
+    if ! echo "$result" | grep -q "already exists" ; then
+      echo "$result" >&2
+      return "$err"
+    fi
+  fi
+  set -e
+
+  # announce script's gcs url via project metadata
+  gcloud compute project-info add-metadata --metadata "gcloudrig-setup-script-gcs-url=$GCSBUCKET/gcloudrig.psm1" --quiet
+}
+
+function gcloudrig_update_powershell_module {
+  # TODO only update if newer
+  local quiet=""
+  [ -n "$GCLOUDRIG_DEBUG" ] && quiet="-q"
+  gsutil $quiet cp "$DIR/gcloudrig.psm1" "$GCSBUCKET/"
+}
+
 function wait_until_instance_group_is_stable {
+  set +e
   timeout 120s gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
   	--region "$REGION" \
     --quiet
 
   err=$?
+  set -e
 
   if [ "$err" -gt "0" ]; then
     gcloud logging read 'severity>=WARNING' \
