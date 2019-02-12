@@ -58,4 +58,3 @@ gsutil rm "$GCSBUCKET/gcloudrig.psm1" || echo -n
 # delete 'gcloud config configuration'
 gcloud config configurations activate NONE || echo -n
 gcloud config configurations delete "$CONFIGURATION" 
-
