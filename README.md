@@ -16,6 +16,10 @@ Note: you will require a Google Cloud project with an active billing account to 
 -  [ZeroTier](https://zerotier.com/) (recommended)
 -  [Parsec](https://parsecgaming.com/) (recommended)
 
+- [ZeroTier](https://zerotier.com/)
+- [TightVNC Client](https://www.tightvnc.com/)
+- [Parsec](https://parsecgaming.com/)
+
 ### Specs
 -  8 vCPU (n1-standard-8)
 -  NVIDIA Tesla P4 (nvidia-tesla-p4-vws)
@@ -143,6 +147,10 @@ If you need a nuclear option, delete everything and start over with these comman
 $ ./destroy.sh
 $ ./setup.sh
 ````
+
+## Disk Maintenance
+
+TODO
 
 ## Travelling?
 gcloudrig keeps your rig as a boot image and disk snapshot in the same GCE region. To move your rig to a different part of the world, just run `./change-region.sh` to change your default region, then run `./scale-up.sh`.  Restoring snapshots in a different region may incurr [network costs](https://cloud.google.com/compute/docs/disks/create-snapshots#network_costs), so be careful!
