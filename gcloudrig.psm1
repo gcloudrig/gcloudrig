@@ -4,12 +4,14 @@ workflow Install-gCloudRig {
     [parameter(Mandatory=$true)] [Boolean] $Set1610VideoModes
   )
 
+  Set-SetupState "installing"
+
   Write-Status "Beginning of gcloudrig workflow..."
 
   InlineScript {
     Write-Status "Doing initial install, and disabling uac/windefender..."
 
-    # initial init
+    # create dir for downloads
     New-Item -ItemType directory -Path "c:\gcloudrig\downloads" -Force
 
     # disable windows defender
@@ -17,7 +19,7 @@ workflow Install-gCloudRig {
     Write-Status "  done."
   }
 
-  Write-Status "Rebooting..."
+  Write-Status "Rebooting(2/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
 
@@ -87,42 +89,64 @@ workflow Install-gCloudRig {
     Write-Status "  done."
   }
   
-  Write-Status "Rebooting..."
+  Write-Status "Rebooting(3/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
 
   InlineScript {
-    Write-Status "Creating shortcuts and installing TightVNC and other tooling..."
+    Write-Status "Creating shortcuts and install other tooling..."
+    # this needs to be done before any software installs
 
     # create shortcut to disconnect
-    $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut("$home\Desktop\Disconnect.lnk")
-    $Shortcut.TargetPath = "C:\Windows\System32\cmd.exe"
-    $Shortcut.Arguments = @'
+    New-Shortcut -shortcutPath "$home\Desktop\Disconnect RDP.lnk" -targetPath "C:\Windows\System32\cmd.exe" -arguments @'
 /c "for /F "tokens=1 delims=^> " %i in ('""%windir%\system32\qwinsta.exe" | "%windir%\system32\find.exe" /I "^>rdp-tcp#""') do "%windir%\system32\tscon.exe" %i /dest:console"
 '@
-    $Shortcut.Save()
-    $bytes = [System.IO.File]::ReadAllBytes("$home\Desktop\Disconnect.lnk")
-    $bytes[0x15] = $bytes[0x15] -bor 0x20
-    [System.IO.File]::WriteAllBytes("$home\Desktop\Disconnect.lnk", $bytes)
+
+    # create shortcut to update nVidida drivers
+    New-Shortcut -shortcutPath "$home\Desktop\Update nVidia Drivers.lnk" -targetPath "powershell" -arguments "-noexit 'import-module gCloudRig; Install-NvidiaDrivers'"
 
     # 7za needed for extracting some exes
-    Download-File -URL "https://lg.io/assets/7za.zip" -File "c:\gcloudrig\downloads\7za.zip"
+    Write-Status "...installing 7za"
+    Save-UrlToFile -URL "https://lg.io/assets/7za.zip" -File "c:\gcloudrig\downloads\7za.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\7za.zip" -DestinationPath "c:\gcloudrig\7za"
 
     # package manager stuff
+    Write-Status "...NuGet Package Provider"
     Install-PackageProvider -Name NuGet -Force
 
     # for Device Management
-    Download-File -URL "https://gallery.technet.microsoft.com/Device-Management-7fad2388/file/65051/2/DeviceManagement.zip" -File "c:\gcloudrig\downloads\DeviceManagement.zip"
+    Write-Status "...Powershell Device Management module"
+    Save-UrlToFile -URL "https://gallery.technet.microsoft.com/Device-Management-7fad2388/file/65051/2/DeviceManagement.zip" -File "c:\gcloudrig\downloads\DeviceManagement.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\DeviceManagement.zip" -DestinationPath "c:\gcloudrig\downloads\DeviceManagement"
     Move-Item "c:\gcloudrig\downloads\DeviceManagement\Release" $PSHOME\Modules\DeviceManagement
     (Get-Content "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1").replace("PowerShellHostVersion = '3.0'", "PowerShellHostVersion = ''") | Out-File "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1"
     Import-Module DeviceManagement
 
+    Write-Status "done."
+  }
+
+  InlineScript {
+    Write-Status "Installing VPN..."
+
+    # disable ipv6 
+    # TODO commented out. why does CloudyGamer do this?
+    #Set-Net6to4Configuration -State disabled
+    #Set-NetTeredoConfiguration -Type disabled
+    #Set-NetIsatapConfiguration -State disabled
+
+    # install zerotier
+    Save-UrlToFile -URL "https://download.zerotier.com/dist/ZeroTier%20One.msi" -File "c:\gcloudrig\downloads\zerotier.msi"
+    & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\zerotier.msi -oc:\gcloudrig\downloads\zerotier
+    (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
+    Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
+    & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi | Out-Null
+
     # install tightvnc
-    Download-File -URL "http://www.tightvnc.com/download/2.8.5/tightvnc-2.8.5-gpl-setup-64bit.msi" -File "c:\gcloudrig\downloads\tightvnc.msi"
+    Write-Status "Installing TightVNC..."
+    Save-UrlToFile -URL "http://www.tightvnc.com/download/2.8.5/tightvnc-2.8.5-gpl-setup-64bit.msi" -File "c:\gcloudrig\downloads\tightvnc.msi"
     $psw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
-    & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD=$psw | Out-Null
+    & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /log c:\gcloudrig\tightvnc.msi.log /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" SET_ACCEPTHTTPCONNECTIONS=1 VALUE_OF_ACCEPTHTTPCONNECTIONS=0 2>&1 | Out-Null
+    
     Write-Status "  done."
   }
 
@@ -159,14 +183,7 @@ workflow Install-gCloudRig {
 
   InlineScript {
     Write-Status "Installing video card drivers..."
-
-    # nvidia driver
-    # from https://cloud.google.com/compute/docs/gpus/add-gpus#install-driver-manual
-    # TODO: parse https://storage.googleapis.com/nvidia-drivers-us-public/ for latest driver
-    $GCEnVidiaDriver = "https://storage.googleapis.com/nvidia-drivers-us-public/GRID/386.09_grid_win10_server2016_64bit_international.exe"
-    Download-File -URL $GCEnVidiaDriver -File "c:\gcloudrig\downloads\nvidia.exe"
-    & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\nvidia.exe -oc:\gcloudrig\downloads\nvidia
-    & c:\gcloudrig\downloads\nvidia\setup.exe -noreboot -clean -s | Out-Null
+    Install-NvidiaDrivers
 
     # set proper video modes
     # default: {*}S 720x480x8,16,32,64=1; 720x576x8,16,32,64=8032;SHV 1280x720x8,16,32,64 1680x1050x8,16,32,64 1920x1080x8,16,32,64 2048x1536x8,16,32,64=1; 1920x1440x8,16,32,64=1F; 640x480x8,16,32,64 800x600x8,16,32,64 1024x768x8,16,32,64=1FFF; 1920x1200x8,16,32,64=3F; 1600x900x8,16,32,64=3FF; 2560x1440x8,16,32,64 2560x1600x8,16,32,64=7B; 1600x1024x8,16,32,64 1600x1200x8,16,32,64=7F;1280x768x8,16,32,64 1280x800x8,16,32,64 1280x960x8,16,32,64 1280x1024x8,16,32,64 1360x768x8,16,32,64 1366x768x8,16,32,64=7FF; 1152x864x8,16,32,64=FFF;
@@ -176,7 +193,7 @@ workflow Install-gCloudRig {
     Write-Status "  done."
   }
 
-  Write-Status "Rebooting..."
+  Write-Status "Rebooting(4/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
 
@@ -195,13 +212,13 @@ workflow Install-gCloudRig {
     move C:\Windows\System32\Drivers\BasicDisplay.sys C:\Windows\System32\Drivers\BasicDisplay.old
 
     # install nvfbcenable
-    Download-File -URL "https://lg.io/assets/NvFBCEnable.zip" -File "c:\gcloudrig\downloads\NvFBCEnable.zip"
+    Save-UrlToFile -URL "https://lg.io/assets/NvFBCEnable.zip" -File "c:\gcloudrig\downloads\NvFBCEnable.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\NvFBCEnable.zip" -DestinationPath "c:\gcloudrig\NvFBCEnable"
     & c:\gcloudrig\NvFBCEnable\NvFBCEnable.exe -enable -noreset
     Write-Status "  done."
   }
   
-  Write-Status "Rebooting..."
+  Write-Status "Rebooting(5/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
 
@@ -213,7 +230,7 @@ workflow Install-gCloudRig {
     Start-Service Audiosrv
 
     # download and install driver
-    (New-Object System.Net.WebClient).DownloadFile("http://vbaudio.jcedeveloppement.com/Download_CABLE/VBCABLE_Driver_Pack43.zip", "c:\gcloudrig\downloads\vbcable.zip")
+    Save-UrlToFile -URL "http://vbaudio.jcedeveloppement.com/Download_CABLE/VBCABLE_Driver_Pack43.zip" -File "c:\gcloudrig\downloads\vbcable.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\vbcable.zip" -DestinationPath "c:\gcloudrig\downloads\vbcable"
     (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\vbcable\vbaudio_cable64_win7.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer"
     Import-Certificate -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
@@ -228,30 +245,10 @@ workflow Install-gCloudRig {
   }
 
   InlineScript {
-    Write-Status "Installing VPN..."
-
-    # disable ipv6 
-    # TODO commented out. why does CloudyGamer do this?
-    #Set-Net6to4Configuration -State disabled
-    #Set-NetTeredoConfiguration -Type disabled
-    #Set-NetIsatapConfiguration -State disabled
-
-    # install zerotier
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    (New-Object System.Net.WebClient).DownloadFile("https://download.zerotier.com/dist/ZeroTier%20One.msi", "c:\gcloudrig\downloads\zerotier.msi")
-    & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\zerotier.msi -oc:\gcloudrig\downloads\zerotier
-    (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
-    Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
-    & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi | Out-Null
-
-    Write-Status "  done."
-  }
-
-  InlineScript {
     Write-Status "Installing Parsec..."
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    (New-Object System.Net.WebClient).DownloadFile("https://s3.amazonaws.com/parsec-build/package/parsec-windows.exe", "c:\gcloudrig\downloads\parsec-windows.exe")
+    Save-UrlToFile -URL "https://s3.amazonaws.com/parsec-build/package/parsec-windows.exe" -File "c:\gcloudrig\downloads\parsec-windows.exe"
     & c:\gcloudrig\downloads\parsec-windows.exe
+
     Write-Status "  done."
   }
 
@@ -260,12 +257,11 @@ workflow Install-gCloudRig {
 
     # TODO: add param to make bnet optional
     # download bnetlauncher
-    (New-Object System.Net.WebClient).DownloadFile("http://madalien.com/pub/bnetlauncher/bnetlauncher_v18.zip", "c:\gcloudrig\downloads\bnetlauncher.zip")
+    Save-UrlToFile -URL "http://madalien.com/pub/bnetlauncher/bnetlauncher_v18.zip" -File "c:\gcloudrig\downloads\bnetlauncher.zip"
     Expand-Archive -LiteralPath "c:\gcloudrig\downloads\bnetlauncher.zip" -DestinationPath "c:\gcloudrig\bnetlauncher"
 
     # download bnet (needs to be launched twice because of some error)
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    (New-Object System.Net.WebClient).DownloadFile("https://www.battle.net/download/getInstallerForGame?os=win&locale=enUS&version=LIVE&gameProgram=BATTLENET_APP", "c:\gcloudrig\downloads\battlenet.exe")
+    Save-UrlToFile -URL "https://www.battle.net/download/getInstallerForGame?os=win&locale=enUS&version=LIVE&gameProgram=BATTLENET_APP" -File "c:\gcloudrig\downloads\battlenet.exe"
     & c:\gcloudrig\downloads\battlenet.exe --lang=english
     sleep 25
     Stop-Process -Name "battlenet"
@@ -273,7 +269,7 @@ workflow Install-gCloudRig {
 
     # TODO: add param to make steam optional
     # download steam
-    (New-Object System.Net.WebClient).DownloadFile("https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe", "c:\gcloudrig\downloads\steamsetup.exe")
+    Save-UrlToFile -URL "https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe" -File "c:\gcloudrig\downloads\steamsetup.exe"
     & c:\gcloudrig\downloads\steamsetup.exe /S | Out-Null
 
     # create the task to restart steam (such that we're not stuck in services Session 0 desktop when launching)
@@ -298,24 +294,83 @@ workflow Install-gCloudRig {
     Write-Status "  done."
   }
 
-  Write-Status "Rebooting..."
+  Write-Status "Rebooting(6/6)..."
   Restart-Computer -Force -Wait
   Write-Status "  done."
 
   InlineScript {
-    # all is complete, remove the startup job
+    # create hardening script
+    $HardeningScript = "c:\gcloudrig\hardening.ps1"
+    $HardeningCommands = @'
+$ZTDIR="C:\ProgramData\ZeroTier\One"
+$ZTEXE=(Join-Path $ZTDIR "zerotier-one_x64.exe")
+if (Test-Path "$ZTDIR") {
+  # get ZT network address
+  $ZTNetwork = & $ZTEXE -q /network | ConvertFrom-Json
+  If ( $? ) {
+    # parse for IPv4 address
+    $ZTIPv4address = $ZTNetwork.assignedAddresses | Where{ $_ -like "*/24" }
+    $ZTNetworkAddress = $ZTIPv4address.Split(".")[0..2] -Join '.'
+  } Else {
+    Throw "Failed to get ZeroTier IPv4 address"
+  }
+} Else {
+  Throw "ZeroTier One not installed"
+}
+
+# Lockdown TightVNC
+Stop-Service -Name TightVNC -ErrorAction SilentlyContinue
+$IpAccessControl = "{0}.1-{0}.254:0,0.0.0.0-255.255.255.255:1" -f $ZTNetworkAddress
+Set-ItemProperty "HKLM:\SOFTWARE\TightVNC\Server" "IpAccessControl" -Value $IpAccessControl
+Start-Service -Name TightVNC -ErrorAction SilentlyContinue
+
+# Lockdown Parsec
+# advanced settings: see https://parsec.tv/config/
+$ParsecConfig = "$Env:AppData\Parsec\config.txt"
+If (Test-Path "$ParsecConfig") {
+  # enable hosting
+  "app_host=1" | Out-File $ParsecConfig -Append
+  
+  # lock down to ZeroTier network
+  "network_ip_address=$ZTIPv4address" | Out-File $ParsecConfig -Append
+
+  # TODO restrict to listening only on ZeroTier interface
+  #"network_adapter=$ZT_INTF" | Out-File $ParsecConfig -Append
+} Else {
+  Throw "$ParsecConfig not found"
+}
+'@
+    $HardeningCommands | Out-File $HardeningScript
+
+    New-Shortcut -shortcutPath "$home\Desktop\Post Setup Security Hardening.lnk" -targetPath "powershell" -arguments "-noexit -file $HardeningScript"
+  }
+
+  InlineScript {
+    # all is complete, update setup state, remove the startup job
+    $(date) | Out-File "C:\gcloudrig\installer.complete"
+    Set-SetupState "complete"
     Remove-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk" -Force
     Write-Status "------ All done! ------"
   }
 }
 
-Function Write-Status {
-  Param([parameter(Mandatory=$true)] [String] $Text)
-  "$(Date) $Text" | Out-File "c:\gcloudrig\installer.txt" -Append
-  gcloud logging write gcloudrig-install "$Text"
+Function Set-SetupState {
+  Param([parameter(Mandatory=$true)] [String] $State)
+
+  & gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=$State" --quiet
+  Write-Status -Sev DEBUG ("changed setup state to $State")
 }
 
-Function Download-File {
+Function Write-Status {
+  Param(
+    [parameter(Mandatory=$true)] [String] $Text,
+    [String] $Sev = "INFO"
+  )
+  "$(Date) $Sev $Text" | Out-File "c:\gcloudrig\installer.txt" -Append
+  New-GcLogEntry -Severity "$Sev" -LogName gcloudrig-install -TextPayload "$Text"
+}
+
+Function Save-UrlToFile {
   Param(
     [parameter(Mandatory=$true)] [String] $URL,
     [parameter(Mandatory=$true)] [String] $File
@@ -324,19 +379,93 @@ Function Download-File {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
   (New-Object System.Net.WebClient).DownloadFile($URL, $File)
   if (Test-Path $File) {
-    Write-Status "  downloaded $File"
+    Write-Status -Sev DEBUG "  downloaded $URL to $File"
   } else {
-    Write-Status "  download of $URL failed"
+    Write-Status -Sev DEBUG "  download of $URL failed"
     throw "download of $URL failed"
   }
 }
 
-Function New-gCloudRigInstall {
-  Param([parameter(Mandatory=$true)] [String] $Password)
+Function New-Shortcut {
+  Param(
+    [parameter(Mandatory=$true)] [String] $shortcutPath,
+    [parameter(Mandatory=$true)] [String] $targetPath,
+    [parameter(Mandatory=$true)] [String] $arguments
+  )
+
+  $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutPath)
+  $Shortcut.TargetPath = $targetPath
+  $Shortcut.Arguments = $arguments
+  $Shortcut.Save()
+  $bytes = [System.IO.File]::ReadAllBytes($shortcutPath)
+  $bytes[0x15] = $bytes[0x15] -bor 0x20
+  [System.IO.File]::WriteAllBytes($shortcutPath, $bytes)
+}
+
+Function Install-NvidiaDrivers {
+  Param(
+    [String] $downloadDir = "c:\gcloudrig\downloads",
+    [String] $nvidiaDriverBucket = "nvidia-drivers-us-public"
+  )
+  # see https://cloud.google.com/compute/docs/gpus/add-gpus#install-driver-manual
+
+  $currentVersion = Get-Package | Where { $_.Name -like "NVIDIA Graphics Driver*" } | %{ $_.Version }
+  If (!$currentVersion) {
+    # assume this is a fresh install
+    $currentVersion=0
+  }
+
+  # Query GCS for the latest nVidia GRID driver
+  # download if newer than current install
+  Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" |
+   Where { $_.Name -like "*_grid_win10_server2016_64bit_international.exe" } |
+   Sort -property Name |
+   Select-Object -Last 1 |
+   ForEach-Object { 
+     $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
+     If ( $thisVersion -gt $currentVersion ) { 
+       $nvidiaDir = Join-Path $downloadDir "nvidia-$thisVersion"
+       $nvidiaSetup = Join-Path $nvidiaDir "setup.exe"
+       $outFile = Join-Path $downloadDir "nvidia-$thisVersion.exe"
+
+       Write-Status "Install-NvidiaDrivers: want to install $thisVersion (upgrade from: $currentVersion)"
+       Write-Status "Install-NvidiaDrivers: download {0}" -f $_.Name
+       Read-GcsObject -InputObject $_ -OutFile $outFile -Force
+       # if download succeeded, install
+       If (Test-Path $outFile) {
+         Write-Status "Install-NvidiaDrivers: extract $outFile"
+         & c:\gcloudrig\7za\7za x -y $outFile -o"$nvidiaDir" 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+         Write-Status "Install-NvidiaDrivers: run $nvidiaSetup"
+         & $nvidiaSetup -noreboot -clean -s 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+         Write-Status "Install-NvidiaDrivers: $nvidiaSetup done."
+       }
+     } Else { 
+       Write-Status "Install-NvidiaDrivers: current: $currentVersion >= latest: $thisVersion"
+     }
+   }
+}
+
+Function Update-GcloudRigModule {
+ 
+  $SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
+  if (Get-GceMetadata -Path "project/attributes" | Select-String $SetupScriptUrlAttribute) {
+    $SetupScriptUrl=(Get-GceMetadata -Path project/attributes/$SetupScriptUrlAttribute)
+
+    & gsutil cp $SetupScriptUrl "$Home\Desktop\gcloudrig.psm1"
+    if (Test-Path "$Home\Desktop\gcloudrig.psm1") {
+      Copy-Item "$Home\Desktop\gcloudrig.psm1" -Destination "$Env:ProgramFiles\WindowsPowerShell\Modules\gCloudRig\" -Force
+    }
+  }
+}
+
+Function Install-Bootstrap {
 
   # create gcloudrig dir for file storage and logging
   New-Item -ItemType directory -Path "c:\gcloudrig" -Force
-  Write-Status "Hello! We'll be installing now."
+
+  # set state
+  Set-SetupState "bootstrap"
+  Write-Status "Bootstrapping gCloudRigInstall"
 
   # disable password complexity (so people can choose whatever password they want)
   secedit /export /cfg "c:\secpol.cfg"
@@ -344,10 +473,13 @@ Function New-gCloudRigInstall {
   secedit /configure /db c:\windows\security\local.sdb /cfg "c:\secpol.cfg" /areas SECURITYPOLICY
   Remove-Item -Force "c:\secpol.cfg" -Confirm:$false
 
-  # create the gcloudrig user
-  $SecurePass = ConvertTo-SecureString $Password -AsPlainText -Force
-  New-LocalUser "gcloudrig" -Password $SecurePass -PasswordNeverExpires
-  Add-LocalGroupMember -Group "Administrators" -Member "gcloudrig"
+  # create a new account and password (in Administrators by default)
+  $ZoneName=(Get-GceMetadata -Path "instance/zone" | Split-Path -Leaf)
+  $InstanceName=(Get-GceMetadata -Path "instance/name")
+  $Password=gcloud compute reset-windows-password "$InstanceName" --user "gcloudrig" --zone "$ZoneName" --format "value(password)"
+
+  # TODO: put this somewhere safer
+  Write-Status "user account created/reset; username:gcloudrig; password:'$Password'"
 
   # set up autologin
   Set-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" "AutoAdminLogon" -Value "1" -type String
@@ -358,32 +490,62 @@ Function New-gCloudRigInstall {
   New-ItemProperty -Path "HKLM:Software\Microsoft\Windows\CurrentVersion\policies\system" -Name EnableLUA -PropertyType DWord -Value 0 -Force
 
   # write the startup job (to be run only for the gcloudrig user)
-$StartupCommands = @'
+  # TODO refactor this to just import-module gcloudrig and call a function
+  $StartupCommands = @'
 if ($env:USERNAME -eq "gcloudrig") {
-  if (Test-Path "c:\gcloudrig\downloads") {
-    gcloud logging write gcloudrig-install "Resuming install job..."
-    Get-Job "gCloudRigInstaller" | Where {$_.State -eq "Suspended"} | Resume-Job
+  $SetupStateExists=(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-state")
+  if ($SetupStateExists) {
+    $SetupState=(Get-GceMetadata -Path "project/attributes/gcloudrig-setup-state")
   } else {
-    # First time
-    gcloud logging write gcloudrig-install "Running gCloudRigInstaller..."
-    Import-Module gCloudRig
-    Install-gCloudRig -JobName gCloudRigInstaller -TimeZone "Pacific Standard Time" -Set1610VideoModes $true -AsJob
+    $SetupState="metadata not found"
+  }
+  
+  switch($SetupState) {
+    "bootstrap" {
+      New-GcLogEntry -LogName gcloudrig-install -Severity DEBUG -TextPayload "installer.ps1:Running gCloudRigInstaller..."
+      Import-Module gCloudRig
+      Install-gCloudRig -JobName gCloudRigInstaller -TimeZone "Pacific Standard Time" -Set1610VideoModes $true -AsJob
+      break
+      }
+    "installing" {
+      New-GcLogEntry -LogName gcloudrig-install -Severity DEBUG -TextPayload "installer.ps1:Resuming gCloudRigInstaller job..."
+      Get-Job "gCloudRigInstaller" | Where {$_.State -eq "Suspended"} | Resume-Job
+      $job=Get-Job "gCloudRigInstaller"
+      if ($job.HasMoreData -eq $true) {
+        # store output from Install-gCloudRig job
+        Receive-Job -Job $job 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+      }
+      switch($job.State) {
+        "Suspended" {
+          Resume-Job -Job $job
+          }
+        "Failed" {
+          New-GcLogEntry -LogName gcloudrig-install -Severity DEBUG -TextPayload "installer.ps1:gCloudRigInstaller job FAILED..."
+          }
+      }
+      break
+      }
+    "complete" {
+      $job=Get-Job "gCloudRigInstaller"
+      if ($job.HasMoreData -eq $true) {
+        # store output from Install-gCloudRig job
+        Receive-Job -Job $job 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+      }
+      # TODO put an "exit" here
+      break
+      }
+    default {
+      New-GcLogEntry -LogName gcloudrig-install -Severity DEBUG -TextPayload "installer.ps1 called with state: $SetupState"
+      }
   }
 }
 '@
   $StartupCommands | Out-File "c:\gcloudrig\installer.ps1"
 
   # run the startup job as an admin
-  $ShortcutPath = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk"
-  $Shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($ShortcutPath)
-  $Shortcut.TargetPath = "powershell"
-  $Shortcut.Arguments = "-noexit -file c:\gcloudrig\installer.ps1"
-  $Shortcut.Save()
-  $bytes = [System.IO.File]::ReadAllBytes($ShortcutPath)
-  $bytes[0x15] = $bytes[0x15] -bor 0x20
-  [System.IO.File]::WriteAllBytes($ShortcutPath, $bytes)
+  New-Shortcut -shortcutPath "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\gcloudriginstaller.lnk" -targetPath "powershell" -arguments "-noexit -file c:\gcloudrig\installer.ps1"
 
-  Write-Status "Created gcloudrig user and startup job. Rebooting now."
+  Write-Status "Created gcloudrig user and startup job. Rebooting now(1/6)."
   Restart-Computer -Force
 }
 

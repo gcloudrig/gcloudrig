@@ -12,8 +12,14 @@ DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 source "$DIR/globals.sh"
 init_gcloudrig;
 
-# start it up
-gcloudrig_start
+OLD_REGION="$REGION"
+echo
+echo "Current region: $REGION"
+gcloudrig_select_region
 
-# mount games disk
-# gcloudrig_mount_games_disk
+if [ "$REGION" != "$OLD_REGION" ] ; then
+  init_common
+
+  gcloudrig_delete_instance_group
+  gcloudrig_create_instance_group
+fi
