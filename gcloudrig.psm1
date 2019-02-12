@@ -638,6 +638,13 @@ Function Get-GcloudrigSetupOptions {
   return $SetupOptions
 }
 
+Function Set-SetupState {
+  Param([parameter(Mandatory=$true)] [String] $State)
+
+  & gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=$State" --quiet
+  Write-Status -Sev DEBUG ("changed setup state to $State")
+}
+
 Function Write-Status {
   Param(
     [parameter(Mandatory=$true)] [String] $Text,
