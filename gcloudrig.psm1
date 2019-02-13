@@ -641,8 +641,18 @@ Function Get-GcloudrigSetupOptions {
 Function Set-SetupState {
   Param([parameter(Mandatory=$true)] [String] $State)
 
-  & gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=$State" --quiet
-  Write-Status -Sev DEBUG ("changed setup state to $State")
+  & gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=$State" --quiet 2>&1 | Out-Null
+  Write-Status -Sev DEBUG "changed setup state to $State"
+}
+
+Function Get-SetupState {
+  $SetupStateExists=(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-state")
+  if ($SetupStateExists) {
+    $SetupState=(Get-GceMetadata -Path "project/attributes/gcloudrig-setup-state")
+  } Else {
+    $SetupState = $null
+  }
+  return $SetupState
 }
 
 Function Write-Status {
