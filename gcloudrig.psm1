@@ -96,14 +96,13 @@ Function Get-SpecialFolder {
 }
 
 Function New-GcloudrigDirs {
-  $GcloudrigDirs = @{
-    "base" = "c:\gcloudrig"
-    "downloads" = "c:\gcloudrig\downloads"
-  }
-  If ( -Not (Test-Path $GcloudrigDirs['base'])) {
-    ForEach($item in $GcloudrigDirs.GetEnumerator()) {
-      Write-Status -Sev DEBUG ("creating {0}" -f $item.Value)
-      New-Item -ItemType directory -Path $item.Value -Force 2>&1 | Out-Null
+  $baseDir = "C:\gcloudrig"
+  $dirs = @('', 'downloads', 'logs')
+  ForEach($subdir in $dirs) {
+    $dir=(Join-Path $baseDir $subdir)
+    If( -Not (Test-Path -Path $dir )) {
+      Write-Status -Sev DEBUG ("creating {0}" -f $dir)
+      New-Item -Path $dir -ItemType directory | Out-Null
     }
   }
 }
