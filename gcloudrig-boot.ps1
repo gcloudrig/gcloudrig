@@ -13,6 +13,7 @@ Function Write-Status {
     [parameter(Mandatory=$true,ValueFromPipeLine=$true)] [String] $Text,
     [String] $Sev = "INFO"
   )
+  # this goes to the serial console
   "$Sev $Text" | Write-Output
   New-GcLogEntry -Severity "$Sev" -LogName gcloudrig-install -TextPayload "$Text"
 }
