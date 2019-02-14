@@ -233,20 +233,20 @@ Function Install-ZeroTier {
   & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\zerotier.msi -oc:\gcloudrig\downloads\zerotier | Out-Null
   (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
   Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
-  & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi | Out-Null
+  & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi /log c:\gcloudrig\logs\zerotier.msi.log | Out-Null
 }
 
 Function Install-TightVNC {
   Write-Status "Installing TightVNC..."
   Save-UrlToFile -URL "http://www.tightvnc.com/download/2.8.5/tightvnc-2.8.5-gpl-setup-64bit.msi" -File "c:\gcloudrig\downloads\tightvnc.msi"
   $psw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
-  & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /log c:\gcloudrig\tightvnc.msi.log /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" SET_ACCEPTHTTPCONNECTIONS=1 VALUE_OF_ACCEPTHTTPCONNECTIONS=0 2>&1 | Out-Null
+  & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /log c:\gcloudrig\logs\tightvnc.msi.log /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" SET_ACCEPTHTTPCONNECTIONS=1 VALUE_OF_ACCEPTHTTPCONNECTIONS=0 2>&1 | Out-Null
 }    
 
 Function Install-Parsec {
   Write-Status "Installing Parsec..."
   Save-UrlToFile -URL "https://s3.amazonaws.com/parsec-build/package/parsec-windows.exe" -File "c:\gcloudrig\downloads\parsec-windows.exe"
-  & c:\gcloudrig\downloads\parsec-windows.exe | Out-Null
+  & c:\gcloudrig\downloads\parsec-windows.exe /S
 }
 
 Function Install-NVFBCEnable {
@@ -258,6 +258,7 @@ Function Install-NVFBCEnable {
 Function Install-Battlenet {
   Write-Status "Installing battle.net..."
   # download bnetlauncher
+  # TODO use this URL to get latest version https://github.com/dafzor/bnetlauncher/releases/latest
   Save-UrlToFile -URL "http://madalien.com/pub/bnetlauncher/bnetlauncher_v18.zip" -File "c:\gcloudrig\downloads\bnetlauncher.zip"
   Expand-Archive -LiteralPath "c:\gcloudrig\downloads\bnetlauncher.zip" -DestinationPath "c:\gcloudrig\bnetlauncher"
 
