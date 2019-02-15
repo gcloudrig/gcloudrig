@@ -206,14 +206,20 @@ Function Install-DeviceManagementModule {
   (Get-Content "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1").replace("PowerShellHostVersion = '3.0'", "PowerShellHostVersion = ''") | Out-File "$PSHOME\Modules\DeviceManagement\DeviceManagement.psd1"
 }
 
+Function Install-7Zip {
+  Write-Status "Installing 7-zip"
+  $downloadPage = Invoke-WebRequest -Uri https://www.7-zip.org/download.html
+  $url=("https://www.7-zip.org/{0}" -f ($downloadPage.Links | Where {$_.outerHTML -Like '*x64.exe*Download*'} | Select-Object -First 1 | %{ $_.href }))
+  Save-UrlToFile -URL $url -File "c:\gcloudrig\downloads\7zip.zip"
+  Expand-Archive -LiteralPath "c:\gcloudrig\downloads\7zip.zip" -DestinationPath "c:\gcloudrig\7zip"
+}
+
 Function Install-PackageTools {
   # TODO replace with Chocolatey
 
   # 7za needed for extracting some exes
-  Write-Status "Installing 7za"
-  Save-UrlToFile -URL "https://lg.io/assets/7za.zip" -File "c:\gcloudrig\downloads\7za.zip"
-  Expand-Archive -LiteralPath "c:\gcloudrig\downloads\7za.zip" -DestinationPath "c:\gcloudrig\7za"
-
+  Install-7Zip
+  
   # package manager stuff
   Write-Status "Installing NuGet Package Provider"
   Install-PackageProvider -Name NuGet -Force
@@ -230,7 +236,7 @@ Function Install-ZeroTier {
 
   # install zerotier
   Save-UrlToFile -URL "https://download.zerotier.com/dist/ZeroTier%20One.msi" -File "c:\gcloudrig\downloads\zerotier.msi"
-  & c:\gcloudrig\7za\7za x c:\gcloudrig\downloads\zerotier.msi -oc:\gcloudrig\downloads\zerotier | Out-Null
+  & c:\gcloudrig\7zip\7z.exe x c:\gcloudrig\downloads\zerotier.msi -oc:\gcloudrig\downloads\zerotier | Out-Null
   (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
   Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
   & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi /log c:\gcloudrig\logs\zerotier.msi.log | Out-Null
@@ -486,7 +492,7 @@ Function Install-NvidiaDrivers {
        # if download succeeded, install
        If (Test-Path $outFile) {
          Write-Status -Sev DEBUG "Install-NvidiaDrivers: extract $outFile"
-         & c:\gcloudrig\7za\7za x -y $outFile -o"$nvidiaDir" 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+         & c:\gcloudrig\7zip\7z.exe x -y $outFile -o"$nvidiaDir" 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
          Write-Status -Sev DEBUG "Install-NvidiaDrivers: run $nvidiaSetup"
          & $nvidiaSetup -noreboot -clean -s 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
          Write-Status "Install-NvidiaDrivers: $nvidiaSetup done."
