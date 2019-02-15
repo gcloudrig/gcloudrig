@@ -234,6 +234,9 @@ Function Install-ZeroTier {
   (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\zerotier\zttap300.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer"
   Import-Certificate -FilePath "c:\gcloudrig\downloads\zerotier\zerotier.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
   & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi /log c:\gcloudrig\logs\zerotier.msi.log | Out-Null
+
+  # start UI
+  Start-Process -FilePath "C:\Program Files (x86)\ZeroTier\One\ZeroTier One.exe"
 }
 
 Function Install-TightVNC {
