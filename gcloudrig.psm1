@@ -281,30 +281,50 @@ Function Install-Steam {
 -Command "Stop-Process -Name "Steam" -Force -ErrorAction SilentlyContinue ; & 'C:\Program Files (x86)\Steam\Steam.exe'"
 '@
   Register-ScheduledTask -Action $action -Description "called by SSM to restart steam. necessary to avoid being stuck in Session 0 desktop." -Force -TaskName "gCloudRig Restart Steam" -TaskPath "\"
+er
+
+Function Install-VBAudioCable {
+  if ($(Get-Device | where Name -eq "VB-Audio Virtual Cable").count -eq 0) {
+    Write-Status "Installing VB-Audio Cable"
+
+    # get link for latest version of VB-Audio Cable
+    $downloadPage = Invoke-WebRequest "https://www.vb-audio.com/Cable/"
+    $downloadLink=($downloadPage.Links | Where {$_.href -Like '*/Download_CABLE/*'} | Select-Object -First 1 | %{ $_.href })
+
+    # download and install driver
+    Save-UrlToFile -URL $downloadLink -File "c:\gcloudrig\downloads\vbcable.zip"
+    If (Test-Path "c:\gcloudrig\downloads\vbcable.zip") {
+      Expand-Archive -LiteralPath "c:\gcloudrig\downloads\vbcable.zip" -DestinationPath "c:\gcloudrig\downloads\vbcable"
+      (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\vbcable\vbaudio_cable64_win7.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer"
+      Import-Certificate -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
+      & c:\gcloudrig\downloads\vbcable\VBCABLE_Setup_x64.exe -i
+
+      # AFAIK no silent install, so kill the process after giving it time to finish installing
+      Sleep 10
+      Get-Process | Where { $_.ProcessName -eq "VBCABLE_Setup_x64" } | Stop-Process
+
+      Import-Module DeviceManagement
+      if ($(Get-Device | where Name -eq "VB-Audio Virtual Cable").count -eq 0) {
+        Write-Status "VB-Cable failed to install"
+      }
+    } Else {
+      Write-Status -Sev ERROR "VB-Cable driver download failed"
+    }
+  } Else {
+    Write-Status "VB-Cable already installed"
+  }
 }
 
 Function Install-VirtualSoundCard {
-  Write-Status "Installing virtual sound card..."
+  # auto start audio service
+  Set-Service Audiosrv -startuptype "automatic"
+  Start-Service Audiosrv
 
-  if ($(Get-Device | where Name -eq "VB-Audio Virtual Cable").count -eq 0) {
-    # auto start audio service
-    Set-Service Audiosrv -startuptype "automatic"
-    Start-Service Audiosrv
-
-    # download and install driver
-    Save-UrlToFile -URL "http://vbaudio.jcedeveloppement.com/Download_CABLE/VBCABLE_Driver_Pack43.zip" -File "c:\gcloudrig\downloads\vbcable.zip"
-    Expand-Archive -LiteralPath "c:\gcloudrig\downloads\vbcable.zip" -DestinationPath "c:\gcloudrig\downloads\vbcable"
-    (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\vbcable\vbaudio_cable64_win7.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer"
-    Import-Certificate -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
-    & c:\gcloudrig\downloads\vbcable\VBCABLE_Setup_x64.exe -i
-    Sleep 10
-    Get-Process | Where { $_.ProcessName -eq "VBCABLE_Setup_x64" } | Stop-Process
-    Import-Module DeviceManagement
-    if ($(Get-Device | where Name -eq "VB-Audio Virtual Cable").count -eq 0) {
-      Write-Status "VBCable failed to install"
-    }
-  } Else {
-    Write-Status "VB-Audio Virtual Cable already installed"
+  $audio_device = Get-CimInstance win32_sounddevice | Where-Object {$_.Status -eq "OK"}
+  If (-Not $audio_device) {
+    Write-Status "Installing virtual sound card..."
+    Install-VBAudioCable
+    # TODO add support for optionally installing Razer Surround instead
   }
 }
 
