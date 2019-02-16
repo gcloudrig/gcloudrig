@@ -419,6 +419,11 @@ function gcloudrig_enable_software_setup {
   gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=new" --quiet
 }
 
+# TODO store the password somewhere safer
+function gcloudrig_get_password_from_logs {
+  gcloud logging read 'logName=projects/$PROJECT_ID/logs/gcloudrig-install AND textPayload:password' --format="value(textPayload)" --limit=1
+}
+
 # create GCS bucket, don't fail if it already exists
 function gcloudrig_create_gcs_bucket {
   local err result
