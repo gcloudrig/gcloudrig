@@ -311,7 +311,9 @@ Function Install-ZeroTier {
 
 Function Install-TightVNC {
   Write-Status "Installing TightVNC..."
-  Save-UrlToFile -URL "http://www.tightvnc.com/download/2.8.5/tightvnc-2.8.5-gpl-setup-64bit.msi" -File "c:\gcloudrig\downloads\tightvnc.msi"
+  $downloadPage=Invoke-WebRequest "https://tightvnc.com/download.php"
+  $url=($downloadPage.Links | Where {$_.innerText -like "Installer for Windows*64*bit*"} | Select-Object -First 1 | %{ $_.href})
+  Save-UrlToFile -URL $url -File "c:\gcloudrig\downloads\tightvnc.msi"
   $psw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
   & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /log c:\gcloudrig\logs\tightvnc.msi.log /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" SET_ACCEPTHTTPCONNECTIONS=1 VALUE_OF_ACCEPTHTTPCONNECTIONS=0 2>&1 | Out-Null
 }    
