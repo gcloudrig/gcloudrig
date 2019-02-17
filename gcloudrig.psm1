@@ -290,7 +290,7 @@ Function Install-Steam {
 -Command "Stop-Process -Name "Steam" -Force -ErrorAction SilentlyContinue ; & 'C:\Program Files (x86)\Steam\Steam.exe'"
 '@
   Register-ScheduledTask -Action $action -Description "called by SSM to restart steam. necessary to avoid being stuck in Session 0 desktop." -Force -TaskName "gCloudRig Restart Steam" -TaskPath "\"
-er
+}
 
 Function Install-VBAudioCable {
   if ($(Get-Device | where Name -eq "VB-Audio Virtual Cable").count -eq 0) {
