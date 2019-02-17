@@ -15,6 +15,7 @@ workflow Install-gCloudRig {
   #    "TimeZone" = "Americas/Los_Angeles"
   #    "Set1610VideoModes" = $false
   #    "VideoMode" = "1920x1080"
+  #    "ZeroTierNetwork" = $null
   #    "Install" = @{
   #      "Battlenet" = $true
   #      "Steam"     = $true
@@ -78,19 +79,11 @@ workflow Install-gCloudRig {
   Restart-Computer -Force -Wait
 
   InlineScript {
-    Install-ZeroTier
+    Install-ZeroTier (Get-HashValue $Using:Options "ZeroTierNetwork")
     Install-TightVNC
     Install-Parsec
 
-    $InstallOptions = (Get-HashValue $Using:Options Install)
-    If($InstallOptions) {
-      If(Get-HashValue $InstallOptions "Battlenet" $false) {
-        Install-Battlenet
-      }
-      If(Get-HashValue $InstallOptions "Steam" $false) {
-        Install-Steam 
-      }
-    }
+    Install-OptionSoftware (Get-HashValue $Using:Options "Install")
 
     Optimize-DesktopExperience 
     New-GcloudrigShortcuts
@@ -125,6 +118,20 @@ Function Get-HashValue {
   } Else {
     return $Default
   }
+}
+
+Function Install-OptionalSoftware {
+  Param (
+    [parameter(Mandatory=$true)] [Hashtable] $InstallOptions
+  )
+
+  If(Get-HashValue $InstallOptions "Battlenet" $false) {
+    Install-Battlenet
+  }
+  If(Get-HashValue $InstallOptions "Steam" $false) {
+    Install-Steam 
+  }
+
 }
 
 Function New-GcloudrigDirs {
@@ -258,6 +265,9 @@ Function Install-PackageTools {
 }
 
 Function Install-ZeroTier {
+  Param (
+    [AllowNull()] [String] $Network
+  )
   Write-Status "Installing ZeroTier..."
 
   # disable ipv6 
@@ -275,8 +285,28 @@ Function Install-ZeroTier {
   }
   & msiexec /qn /i c:\gcloudrig\downloads\zerotier.msi /log c:\gcloudrig\logs\zerotier.msi.log | Out-Null
 
-  # start UI
-  Start-Process -FilePath "C:\Program Files (x86)\ZeroTier\One\ZeroTier One.exe"
+  $ZTEXE="$Env:ProgramData\ZeroTier\One\zerotier-one_x64.exe"
+  If( -Not (Test-Path $ZTEXE)) {
+    Write-Status -Sev ERROR "ZeroTier: install failed. check c:\gcloudrig\logs\zerotier.msi.log"
+    Return
+  }
+
+  # wait for service to start and create identity
+  $ZTAuthToken="$Env:ProgramData\ZeroTier\One\authtoken.secret"
+  If ( -Not (Test-Path "$ZTAuthToken")) {
+    sleep 5
+  }
+
+  $ZTStatus = (& $ZTEXE -q /status | ConvertFrom-Json)
+  If($ZTStatus) {
+    Write-Status "ZeroTier: address $ZTStatus.address"
+  }
+
+  # join a network, if specified
+  If($Network) {
+    & $ZTEXE -ArgumentList "-q /join $Network" | Out-File "c:\gcloudrig\installer.txt" -Append
+    Write-Status "ZeroTier: joined network $Network"
+  }
 }
 
 Function Install-TightVNC {
