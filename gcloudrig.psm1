@@ -326,17 +326,20 @@ Function Install-Parsec {
 
 Function Install-NVFBCEnable {
   Write-Status "Install nvfbcenable.exe"
+  # TODO find where to get updated version of this
   Save-UrlToFile -URL "https://lg.io/assets/NvFBCEnable.zip" -File "c:\gcloudrig\downloads\NvFBCEnable.zip"
   Expand-Archive -LiteralPath "c:\gcloudrig\downloads\NvFBCEnable.zip" -DestinationPath "c:\gcloudrig\NvFBCEnable"
 }
 
 Function Install-Battlenet {
-  Write-Status "Installing battle.net..."
-  # download bnetlauncher
-  # TODO use this URL to get latest version https://github.com/dafzor/bnetlauncher/releases/latest
-  Save-UrlToFile -URL "http://madalien.com/pub/bnetlauncher/bnetlauncher_v18.zip" -File "c:\gcloudrig\downloads\bnetlauncher.zip"
+  Write-Status "Installing madalien.com bnetlauncher..."
+  # download bnetlauncher 
+  $downloadPage = Invoke-Webrequest "https://madalien.com/stuff/bnetlauncher/"
+  $url = ($downloadPage.Links | Where {$_.href -Like "https://madalien.com/pub/bnetlauncher/bnetlauncher_*.zip"} | Select-Object -First 1 | %{ $_.href})
+  Save-UrlToFile -URL $url -File "c:\gcloudrig\downloads\bnetlauncher.zip"
   Expand-Archive -LiteralPath "c:\gcloudrig\downloads\bnetlauncher.zip" -DestinationPath "c:\gcloudrig\bnetlauncher"
 
+  Write-Status "Installing battle.net..."
   # download bnet (needs to be launched twice because of some error)
   Save-UrlToFile -URL "https://www.battle.net/download/getInstallerForGame?os=win&locale=enUS&version=LIVE&gameProgram=BATTLENET_APP" -File "c:\gcloudrig\downloads\battlenet.exe"
   & c:\gcloudrig\downloads\battlenet.exe --lang=english
