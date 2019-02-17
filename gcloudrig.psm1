@@ -83,7 +83,7 @@ workflow Install-gCloudRig {
     Install-TightVNC
     Install-Parsec
 
-    Install-OptionSoftware (Get-HashValue $Using:Options "Install")
+    Install-OptionalSoftware (Get-HashValue $Using:Options "Install")
 
     Optimize-DesktopExperience 
     New-GcloudrigShortcuts
