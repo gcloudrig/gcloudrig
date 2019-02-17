@@ -9,12 +9,21 @@
 # TODO workflows run in a separate space, you have to pass any variables in
 workflow Install-gCloudRig {
   Param (
-    [parameter(Mandatory=$true)] [String] $TimeZone,
-    [Switch] $Set1610VideoModes
+    [Hashtable] $Options
   )
+  #  $Options = @{
+  #    "TimeZone" = "Americas/Los_Angeles"
+  #    "Set1610VideoModes" = $false
+  #    "VideoMode" = "1920x1080"
+  #    "Install" = @{
+  #      "Battlenet" = $true
+  #      "Steam"     = $true
+  #    }
+  #  }
 
   Set-SetupState "installing"
   Write-Status -Sev DEBUG "Beginning of Install-gCloudRig..."
+  Write-Status -Sev DEBUG "$Using:Options"
 
   InlineScript {
     New-GcloudrigDirs
@@ -41,9 +50,10 @@ workflow Install-gCloudRig {
     # this requires a reqboot
     Install-NvidiaDrivers
     Install-NVFBCEnable
-    If ($Using:Set1610VideoModes) {
+    If(Get-HashValue $Using:Options "Set1610VideoModes" $false) {
       Set-1610VideoModes 
     }
+    Set-GcloudrigDisplayResolution (Get-HashValue $Using:Options "VideoMode")
   }
 
   Write-Status "Rebooting(4/6)..."
@@ -71,8 +81,16 @@ workflow Install-gCloudRig {
     Install-ZeroTier
     Install-TightVNC
     Install-Parsec
-    Install-Battlenet
-    Install-Steam 
+
+    $InstallOptions = (Get-HashValue $Using:Options Install)
+    If($InstallOptions) {
+      If(Get-HashValue $InstallOptions "Battlenet" $false) {
+        Install-Battlenet
+      }
+      If(Get-HashValue $InstallOptions "Steam" $false) {
+        Install-Steam 
+      }
+    }
 
     Optimize-DesktopExperience 
     New-GcloudrigShortcuts
@@ -93,6 +111,20 @@ Function Get-SpecialFolder {
   Param([parameter(Mandatory=$true)] [String] $Name)
 
   return [System.Environment]::GetFolderPath($Name)
+}
+
+# Get-HashValue(h,k[,d]) -> h[k] if k in h, else d.  d defaults to $null.
+Function Get-HashValue {
+  Param (
+    [parameter(Mandatory=$true)] [Hashtable] $Hashtable,
+    [parameter(Mandatory=$true)] [System.Object] $Key,
+    [AllowNull()]                [System.Object] $Default
+  )
+  If($Hashtable.Keys -contains $Key) {
+    return $Hashtable[$Key]
+  } Else {
+    return $Default
+  }
 }
 
 Function New-GcloudrigDirs {
@@ -402,6 +434,22 @@ Function Set-VirtualDisplayAdapter {
   & c:\gcloudrig\NvFBCEnable\NvFBCEnable.exe -enable -noreset | Out-Null
 }
 
+Function Set-GcloudrigDisplayResolution {
+  Param (
+    [parameter(Mandatory=$true)] [String] $VideoMode
+  )
+
+  If($VideoMode) {
+    Try {
+      $width,$height = $VideoMode.Split('x')
+    } Catch {
+      Write-Status -Sev ERROR "couldn't parse requested video mode: `"$VideoMode`".  Use WIDTHxHEIGHT, eg. 1920x1080"
+      Return
+    }
+    Set-DisplayResolution -Width $width -Height $height -Force
+  }
+}
+
 Function Set-SetupState {
   Param([parameter(Mandatory=$true)] [String] $State)
 
@@ -639,7 +687,11 @@ Function Invoke-GcloudrigInstaller {
   switch($SetupState) {
     "bootstrap" {
       Write-Status -Sev DEBUG "Starting gCloudRigInstaller job..."
-      Install-gCloudRig -JobName gCloudRigInstaller -TimeZone "Pacific Standard Time" -AsJob
+      $SetupOptions = @{}
+      If(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-options") {
+        $SetupOptions=Get-GceMetadata -Path "project/attributes/gcloudrig-setup-options" | ConvertFrom-Json
+      }
+      Install-gCloudRig -JobName gCloudRigInstaller -Option $SetupOptions -AsJob
       break
     }
     "installing" {
