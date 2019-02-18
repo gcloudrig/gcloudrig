@@ -31,6 +31,10 @@ workflow Install-gCloudRig {
     Install-PackageTools
     Install-DeviceManagementModule
 
+    # install ZT early so user can auth this node while the install runs
+    # if $Options['ZeroTierNetwork'] is defined
+    Install-ZeroTier (Get-HashValue $Using:Options "ZeroTierNetwork")
+
     # this requires a reboot
     Disable-WindowsDefenderStage1
   }
@@ -79,10 +83,8 @@ workflow Install-gCloudRig {
   Restart-Computer -Force -Wait
 
   InlineScript {
-    Install-ZeroTier (Get-HashValue $Using:Options "ZeroTierNetwork")
     Install-TightVNC
     Install-Parsec
-
     Install-OptionalSoftware (Get-HashValue $Using:Options "Install")
 
     Optimize-DesktopExperience 
@@ -316,6 +318,11 @@ Function Install-TightVNC {
   Save-UrlToFile -URL $url -File "c:\gcloudrig\downloads\tightvnc.msi"
   $psw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
   & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /log c:\gcloudrig\logs\tightvnc.msi.log /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" SET_ACCEPTHTTPCONNECTIONS=1 VALUE_OF_ACCEPTHTTPCONNECTIONS=0 2>&1 | Out-Null
+
+  # TODO: install DFMirage driver?
+  # $DFMirageUrl=($downloadPage.Links | Where {$_.innerText -Like "Download DFMirage driver"} | %{$_.href})
+  # Save-UrlToFile -URL $DFMirageUrl -File "c:\gcloudrig\downloads\dfmirage.exe"
+  # & "c:\gcloudrig\downloads\dfmirage.exe" /verysilent /norestart | Out-Null
 }    
 
 Function Install-Parsec {
@@ -616,7 +623,7 @@ Function Get-ZeroTierIPv4Address {
     $ZTNetwork = & $ZTEXE -q /network | ConvertFrom-Json
     If ($ZTNetwork) {
       # parse for IPv4 address
-      Return $ZTNetwork.assignedAddresses | Where{ $_ -like "*/24" }
+      Return $ZTNetwork.assignedAddresses | Where{ $_ -like "*/24" } | Select-Object -First 1 | %{ $_.Split("/")[0] }
     } Else {
       Write-Error "Failed to get ZeroTier IPv4 address"
       Return
@@ -645,12 +652,16 @@ Function Protect-Parsec {
   # Lockdown Parsec to listen on ZeroTier IPv4 address only
   # advanced settings: see https://parsec.tv/config/
   $ParsecConfig = "$Env:AppData\Parsec\config.txt"
-  If (Test-Path "$ParsecConfig") {
-    # lock down to ZeroTier network
-    "network_ip_address=$ZTIPv4address" | Out-File $ParsecConfig -Append
-  } Else {
-    Write-Error "$ParsecConfig not found"
+  If( -Not (Test-Path "$ParsecConfig")) {
+    Write-Error "Protect-Parsec: $ParsecConfig not found"
+    Return
   }
+  If( Get-Content $ParsecConfig | Where-Object {$_ -Like "network_ip_address=*"}) {
+    Write-Host "Protect-Parsec: network_ip_address already configured."
+    Return
+  }
+  # lock down to ZeroTier network
+  "network_ip_address=$ZTIPv4address" | Out-File $ParsecConfig -Append -Encoding ascii
 }
 
 Function Protect-GcloudrigRemoteAccess {
