@@ -138,11 +138,17 @@ function gcloudrig_config_setup {
     if [ -n "$ACCOUNTS" ] ; then
       echo
       echo "Select account to use:"
-      select acct in $ACCOUNTS ; do
-        [ -n "$acct" ] && gcloud config set account $acct && break
+      select acct in $ACCOUNTS "new account"; do
+        if [ -n "$acct" ] ; then
+          if [ "$acct" == "new account" ] ; then
+            gcloud auth login --no-launch-browser && break
+          else
+            gcloud config set account $acct && break
+          fi
+        fi
       done
     else
-      gcloud auth login
+      gcloud auth login --no-launch-browser
     fi
   fi
 
