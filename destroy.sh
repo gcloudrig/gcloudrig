@@ -18,6 +18,13 @@ gcloudrig_stop || echo -n
 # delete managed instance group
 gcloudrig_delete_instance_group 
 
+# remove software install metadata
+gcloud compute project-info remove-metadata \
+  --keys "gcloudrig-setup-script-gcs-url,gcloudrig-setup-state,gcloudrig-setup-options" || echo -n
+
+# remove software install script
+gsutil rm "$GCSBUCKET/gcloudrig.psm1" || echo -n
+
 # delete images
 images=()
 mapfile -t images < <(gcloud compute images list \
@@ -30,6 +37,7 @@ done
 # delete disks, if left behind
 disks=()
 mapfile -t disks < <(gcloud compute disks list \
+  --filter="name:gcloudrig" \
   --format="csv[no-heading](name,zone)")
 for name_zone in "${disks[@]}"; do
   name="${name_zone%%,*}"
@@ -46,12 +54,6 @@ mapfile -t SNAPSHOTS < <(gcloud compute snapshots list \
 for SNAP in "${SNAPSHOTS[@]}"; do
   gcloud compute snapshots delete "$SNAP" || echo -n
 done
-
-# remove software install metadata
-gcloud compute project-info remove-metadata --keys "gcloudrig-setup-script-gcs-url" || echo -n
-
-# remove software install script
-gsutil rm "$GCSBUCKET/gcloudrig.psm1" || echo -n
 
 # delete 'gcloud config configuration'
 gcloud config configurations activate NONE || echo -n
