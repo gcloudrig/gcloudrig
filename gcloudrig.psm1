@@ -46,6 +46,7 @@ workflow Install-gCloudRig {
     # this requires a reboot
     Disable-WindowsDefenderStage2
     Optimize-ForGamingPerformance 
+    Optimize-DesktopExperience 
   }
   
   Write-Status "Rebooting(3/6)..."
@@ -87,7 +88,6 @@ workflow Install-gCloudRig {
     Install-Parsec
     Install-OptionalSoftware (Get-HashValue $Using:Options "Install")
 
-    Optimize-DesktopExperience 
     New-GcloudrigShortcuts
   }
 
