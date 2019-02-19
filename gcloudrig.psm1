@@ -187,6 +187,20 @@ Function Optimize-ForGamingPerformance {
   # explorer set to performance
   Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2
 
+  # disable explorer features
+  $UserKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+  Set-ItemProperty $UserKey "NoLowDiskSpaceChecks" 1
+  Set-ItemProperty $UserKey "LinkResolveIgnoreLinkInfo" 1
+  Set-ItemProperty $UserKey "NoResolveSearch" 1
+  Set-ItemProperty $UserKey "NoResolveTrack" 1
+  Set-ItemProperty $UserKey "NoInternetOpenWith" 1
+
+  # Turn off Shutdown Event Tracker
+  Set-ItemProperty "HKLM:\Software\Policies\Microsoft\Windows NT\reliability" ShutdownReasonOn 0
+  
+  # Turn off Windows Error Reporting
+  Set-ItemProperty "HKLM:\Software\Microsoft\Windows\Windows Error Reporting" DontShowUI 1
+
   # disable crash dump
   Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\CrashControl" -Name "CrashDumpEnabled" -Value 0
 
@@ -453,6 +467,28 @@ Function Optimize-DesktopExperience {
 
   # hide the touchbar button on the systray
   Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\PenWorkspace" -Name PenWorkspaceButtonDesiredVisibility -Value 0
+
+  # Stop Server Manager and Startup Tasks from appearing in console
+  Set-ItemProperty "HKLM:\Software\Microsoft\ServerManager" DoNotOpenServerManagerAtLogon 1
+  Set-ItemProperty "HKLM:\Software\Microsoft\ServerManager" CheckUnattendLaunchSetting 0
+  Set-ItemProperty "HKLM:\Software\Microsoft\ServerManager\Oobe" DoNotOpenInitialConfigurationTasksAtLogon 1
+
+  # Set background to black
+  Set-ItemProperty "HKCU:\Control Panel\Colors" Background "0 0 0"
+
+  # Remove GCE BGInfo background setter
+  Remove-Item -Force (Join-Path (Get-SpecialFolder CommonStartup) "BGInfo.lnk") 
+
+  # Don't prompt for network location
+  New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Network\NewNetworkWindowOff" -Force
+
+  # Enable Enhanced Pointer Precision
+  Set-Itemproperty "HKCU:\Control Panel\Mouse" MouseSpeed 1
+
+  # Disabling Shutdown Option in Start Menu
+  Set-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" NoClose 1
+  # Disabling Logout Option in Start Menu
+  Set-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" StartMenuLogOff 1
 
   # TODO set timezone 
   # Set-TimeZone $Using:TimeZone
