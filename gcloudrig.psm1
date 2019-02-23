@@ -645,6 +645,14 @@ Function Get-SetupState {
   return $SetupState
 }
 
+Function Get-GcloudrigSetupOptions {
+  $SetupOptions = $null
+  If(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-options") {
+    $SetupOptions=Get-GceMetadata -Path "project/attributes/gcloudrig-setup-options" | ConvertFrom-JsonAsHashtable
+  }
+  return $SetupOptions
+}
+
 Function Write-Status {
   Param(
     [parameter(Mandatory=$true)] [String] $Text,
