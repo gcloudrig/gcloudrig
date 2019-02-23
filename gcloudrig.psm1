@@ -12,19 +12,17 @@ workflow Install-gCloudRig {
     [Hashtable] $Options
   )
   #  $Options = @{
-  #    "TimeZone" = "Americas/Los_Angeles"
+  #    "TimeZone"          = "Americas/Los_Angeles"
   #    "Set1610VideoModes" = $false
-  #    "VideoMode" = "1920x1080"
-  #    "ZeroTierNetwork" = $null
-  #    "Install" = @{
-  #      "Battlenet" = $true
-  #      "Steam"     = $true
-  #    }
+  #    "VideoMode"         = "1920x1080"
+  #    "ZeroTierNetwork"   = $null
+  #    "InstallBattlenet"  = $false
+  #    "InstallSteam"      = $false
   #  }
 
   Set-SetupState "installing"
   Write-Status -Sev DEBUG "Beginning of Install-gCloudRig..."
-  Write-Status -Sev DEBUG "$Using:Options"
+  Write-Status -Sev DEBUG "Options: $Using:Options"
 
   InlineScript {
     New-GcloudrigDirs
@@ -86,7 +84,7 @@ workflow Install-gCloudRig {
   InlineScript {
     Install-TightVNC
     Install-Parsec
-    Install-OptionalSoftware (Get-HashValue $Using:Options "Install")
+    Install-OptionalSoftware $Using:Options
 
     New-GcloudrigShortcuts
   }
@@ -122,15 +120,34 @@ Function Get-HashValue {
   }
 }
 
+# in Powershell v6 we can just use 'ConvertFrom-Json -AsHashtable'
+Function ConvertFrom-JsonAsHashtable {
+  [CmdletBinding()]
+  [OutputType('hashtable')]
+  Param (
+    [Parameter(ValueFromPipeline)] $InputObject
+  )
+
+  Process {
+    If ($null -eq $InputObject) {
+      return @{}
+    }
+    Add-Type -AssemblyName System.Web.Extensions
+    $parser = New-Object Web.Script.Serialization.JavaScriptSerializer
+    $parser.MaxJsonLength = $InputObject.length
+    Write-Output -NoEnumerate $parser.Deserialize($InputObject, @{}.GetType())
+  }
+}
+
 Function Install-OptionalSoftware {
   Param (
     [parameter(Mandatory=$true)] [Hashtable] $InstallOptions
   )
 
-  If(Get-HashValue $InstallOptions "Battlenet" $false) {
+  If(Get-HashValue $InstallOptions "InstallBattlenet" $false) {
     Install-Battlenet
   }
-  If(Get-HashValue $InstallOptions "Steam" $false) {
+  If(Get-HashValue $InstallOptions "InstallSteam" $false) {
     Install-Steam 
   }
 
@@ -315,12 +332,12 @@ Function Install-ZeroTier {
 
   $ZTStatus = (& $ZTEXE -q /status | ConvertFrom-Json)
   If($ZTStatus) {
-    Write-Status "ZeroTier: address $ZTStatus.address"
+    Write-Status ("ZeroTier: address {0}" -f $ZTStatus.address)
   }
 
   # join a network, if specified
   If($Network) {
-    & $ZTEXE -ArgumentList "-q /join $Network" | Out-File "c:\gcloudrig\installer.txt" -Append
+    & $ZTEXE -q join $Network | Out-File "c:\gcloudrig\installer.txt" -Append
     Write-Status "ZeroTier: joined network $Network"
   }
 }
@@ -543,6 +560,14 @@ Function Get-SetupState {
     $SetupState = $null
   }
   return $SetupState
+}
+
+Function Get-GcloudrigSetupOptions {
+  $SetupOptions = $null
+  If(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-options") {
+    $SetupOptions=Get-GceMetadata -Path "project/attributes/gcloudrig-setup-options" | ConvertFrom-JsonAsHashtable
+  }
+  return $SetupOptions
 }
 
 Function Write-Status {
@@ -769,11 +794,7 @@ Function Invoke-GcloudrigInstaller {
   switch($SetupState) {
     "bootstrap" {
       Write-Status -Sev DEBUG "Starting gCloudRigInstaller job..."
-      $SetupOptions = @{}
-      If(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-options") {
-        $SetupOptions=Get-GceMetadata -Path "project/attributes/gcloudrig-setup-options" | ConvertFrom-Json
-      }
-      Install-gCloudRig -JobName gCloudRigInstaller -Option $SetupOptions -AsJob
+      Install-gCloudRig -JobName gCloudRigInstaller -Options (Get-GcloudrigSetupOptions) -AsJob
       break
     }
     "installing" {

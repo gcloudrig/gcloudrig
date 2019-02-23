@@ -28,6 +28,13 @@ PROJECT_ID=""
 ZONES=""
 GCSBUCKET=""
 
+
+declare -A SETUPOPTIONS
+SETUPOPTIONS[ZeroTierNetwork]=""
+SETUPOPTIONS[VideoMode]="1920x1080"
+SETUPOPTIONS[InstallSteam]="false"
+SETUPOPTIONS[InstallBattlenet]="false"
+
 ########
 # INIT #
 ########
@@ -190,6 +197,91 @@ function gcloudrig_config_setup {
   if [ -z "$REGION" ] ; then
     gcloudrig_select_region
   fi
+}
+
+function gcloudrig_select_software_options {
+  local installerOptions
+  local keys="$(echo ${!SETUPOPTIONS[@]} | fmt -1 | sort)"
+
+  while true ; do
+    installerOptions=""
+    for key in $keys ; do
+      installerOptions="$installerOptions $key=${SETUPOPTIONS[$key]}"
+    done
+
+    echo
+    select option in $installerOptions Done ; do
+      case "$option" in
+        ZeroTier*)
+          gcloudrig_select_zerotier_network
+          break
+          ;;
+        VideoMode*)
+          gcloudrig_select_videomode
+          break
+          ;;
+        Install*)
+          gcloudrig_select_software_install "$option"
+          break
+          ;;
+        Done)
+          break 2
+          ;;
+      esac
+    done
+  done
+}
+
+function gcloudrig_select_software_install {
+  local package="${1%%=*}"
+  local state="${1##*=}"
+
+  case "$state" in
+    true)
+      SETUPOPTIONS[$package]=false
+      ;;
+    false)
+      SETUPOPTIONS[$package]=true
+      ;;
+  esac
+}
+
+function gcloudrig_select_videomode {
+  local videoModes="960x720 1920x1080 2560x1440 other"
+
+  echo "Select a default videomode:"
+  select mode in $videoModes ; do
+    if [ -n "$mode" ] ; then
+      [ "$mode" == "other" ] && break
+      SETUPOPTIONS[VideoMode]="$mode"
+      break
+    fi
+  done
+}
+
+function gcloudrig_select_zerotier_network {
+  local prompt="Gcloudrig ZeroTier network id [or quit]: " 
+
+  cat <<EOF
+
+We strongly recommend you create a new ZeroTier network for Gcloudrig
+https://my.zerotier.com/network
+
+EOF
+
+  while read -e -p "$prompt" ; do
+    if echo "$REPLY" | grep -Eiq '^[0-9a-f]{16}$' ; then
+      SETUPOPTIONS[ZeroTierNetwork]="$REPLY"
+      return
+    fi
+    case "$REPLY" in
+      q|quit|exit|cancel)
+        break
+        ;;
+      *)
+        echo "ZeroTier Network IDs are 16 hexadecimal numbers" >&2
+    esac
+  done
 }
 
 function gcloudrig_select_region {
@@ -434,7 +526,39 @@ EOF
 function gcloudrig_enable_software_setup {
   # set project level metadata that gcloudrig-boot.ps1 will check to start a
   # software install
-  gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=new" --quiet
+  echo "Enabling Gcloudrig software installer..."
+  gcloud compute project-info add-metadata --quiet \
+    --metadata "gcloudrig-setup-state=new" \
+    --metadata-from-file gcloudrig-setup-options=<(gcloudrig_setup_options_to_json) 
+}
+
+function gcloudrig_setup_options_to_json {
+  # all this to avoid asking ppl to install jq...
+  local jsonTemplate='{%s}'
+  local optionTemplate='"%s":"%s"'
+  local booleanTemplate='"%s":%s'
+  local optionString=""
+  local key value
+
+  if [ "${#SETUPOPTIONS[@]}" -eq 0 ] ; then
+    return
+  fi
+
+  for key in "${!SETUPOPTIONS[@]}" ; do
+    value="${SETUPOPTIONS[$key]}"
+    value="${value//\'}" # nuke single quotes
+    value="${value//\"}" # nuke double quotes
+    if [ "$value" == "true" -o "$value" == "false" ] ; then
+      optionString="$(printf "$booleanTemplate" "$key" "$value"),$optionString"
+    else
+      optionString="$(printf "$optionTemplate" "$key" "$value"),$optionString"
+    fi
+  done
+
+  # trim any trailing ','
+  optionString="${optionString%,}"
+
+  printf "$jsonTemplate" "$optionString"
 }
 
 # TODO store the password somewhere safer
