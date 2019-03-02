@@ -82,11 +82,11 @@ A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.
 
 ### Connect and finish setup (not automatic, yet)
 -  Open your [ZeroTier network](https://my.zerotier.com/network); scroll down to the Members section and mark the *Auth?* checkbox next to your gcloudrig.  You can verify the correct host by matching the Physical IP against your [running compute instances](https://console.cloud.google.com/compute/instances).
--  Use (Remote Desktop)[https://www.microsoft.com/p/microsoft-remote-desktop/9wzdncrfj3ps] to connect to your rig with the ZeroTier IP.  Your username and password can be found in the [logs](https://console.cloud.google.com/logs/viewer?resource=global&minLogLevel=200).
+-  Use [Remote Desktop](https://www.microsoft.com/p/microsoft-remote-desktop/9wzdncrfj3ps) to connect to your rig with the ZeroTier IP.  Your username and password can be found in the [logs](https://console.cloud.google.com/logs/viewer?resource=global&minLogLevel=200).
 -  Finish the Parsec installation, login and enable hosting.
-   - [Configure Parsec to only listen on the ZeroTier IP](https://support.parsecgaming.com/hc/en-us/articles/115002766652-Setting-Up-A-VPN-To-Play-Games-On-A-Virtual-Local-Network), or use the (VPC Firewall)[https://cloud.google.com/vpc/docs/using-firewalls] to open up the ports required for Parsec (see (Parsec Port Forwarding)[https://support.parsecgaming.com/hc/en-us/articles/115002770371-Setting-Up-Port-Forwarding-On-Your-Router] for guidance).
+   - [Configure Parsec to only listen on the ZeroTier IP](https://support.parsecgaming.com/hc/en-us/articles/115002766652-Setting-Up-A-VPN-To-Play-Games-On-A-Virtual-Local-Network), or use the [VPC Firewall](https://cloud.google.com/vpc/docs/using-firewalls) to open up the ports required for Parsec (see [Parsec Port Forwarding](https://support.parsecgaming.com/hc/en-us/articles/115002770371-Setting-Up-Port-Forwarding-On-Your-Router) for guidance).
 -  Double-click the *Disconnect RDP* shortcut on the desktop, which will drop your RDP session back to the local screen.  This bypasses the windows lock screen, which Parsec doesn't have permission to see.
--  Use (Parsec)[https://ui.parsecgaming.com/] to connect back to your instance.
+-  Use [Parsec](https://ui.parsecgaming.com/) to connect back to your instance.
 -  Once you're connected, the Parsec logo should be running in your system tray.  Right-click it, and set it *Run when my computer starts*.
 -  Uninstall TightVNC.
    -  If you really want to keep it, lock it down to your Zerotier network's IP range (e.g. `allow 10.147.17.0-10.147.17.255`; `deny 0.0.0.0-255.255.255`).
@@ -94,13 +94,13 @@ A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.
 ### Optional setup
 -  Get a free public hostname for your private ZeroTier IP at [Duck DNS](https://www.duckdns.org/).
    -  If you want a hostname for your dynamic public IP as well, you'll need to install a DDNS client or a startup script.
-- Restrict public access to RDP ports by modifying the `default-allow-rdp` rule in (VPC Firewall)[https://cloud.google.com/vpc/docs/using-firewalls].
+- Restrict public access to RDP ports by modifying the `default-allow-rdp` rule in [VPC Firewall](https://cloud.google.com/vpc/docs/using-firewalls).
   
 
 ## Manual software installation
 If you answered No to automatic installation during `./setup.sh`, run `./scale-up.sh` and a clean Windows Server instance will be created.
 
-Run `./reset-windows-password.sh` to get the IP, Username and Password, then connect to your instance with (Remote Desktop)[https://www.microsoft.com/p/microsoft-remote-desktop/9wzdncrfj3ps].  See [Creating Passwords for Windows Instances](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances) and [Connecting to Windows Instances](https://cloud.google.com/compute/docs/instances/connecting-to-instance#windows) for more info.
+Run `./reset-windows-password.sh` to get the IP, Username and Password, then connect to your instance with [Remote Desktop](https://www.microsoft.com/p/microsoft-remote-desktop/9wzdncrfj3ps).  See [Creating Passwords for Windows Instances](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances) and [Connecting to Windows Instances](https://cloud.google.com/compute/docs/instances/connecting-to-instance#windows) for more info.
 
 We recomend the following software, but feel free to find your own:
 - Install [GRID® drivers for virtual workstations](https://cloud.google.com/compute/docs/gpus/add-gpus#installing_gridwzxhzdk37_drivers_for_virtual_workstations)
@@ -112,7 +112,7 @@ We recomend the following software, but feel free to find your own:
 - Install [Parsec](https://parsecgaming.com/) or your choice of streaming software
 - Setup [Autologon](https://docs.microsoft.com/en-au/sysinternals/downloads/autologon) to bypass the lock screen on boot.
    - If automatic login fails, or you access your instance with RDP then the lock screen will prevent most streaming software from working.  You can use TightVNC to access the lock screen.
-   - Alternatively, use RDP and an (unlock script)[https://steamcommunity.com/groups/homestream/discussions/0/617335934139051123/] to drop the RDP session directly to the local console, securely bypassing the lock screen.
+   - Alternatively, use RDP and an [unlock script](https://steamcommunity.com/groups/homestream/discussions/0/617335934139051123/) to drop the RDP session directly to the local console, securely bypassing the lock screen.
 - Install game clients (e.g. Steam, Battlenet) and enjoy!
 
 
@@ -125,15 +125,14 @@ We recomend the following software, but feel free to find your own:
   Once stopped, it will take a few minutes to create a copy of both boot and
   games disks.  Read [Disk maintenance](#disk-maintenance) below for more info.
 
-## Notes
+## Notes/FAQ/Common Issues
+
 Connecting with RDP will disconnect your "physical" session on the virtual monitor.  Doing so will show the windows lock screen on the virtual monitor, which upsets most streaming clients.  If you find yourself in this situation, you have a few options:
 - use an *Disconnect RDP* shortcut on your desktop (instructions: (steamcommunity.com/groups/homestream/discussions/0/617335934139051123)[https://steamcommunity.com/groups/homestream/discussions/0/617335934139051123/])
 - connect with TightVNC, which can interact with the lock screen and just login
 - Configure [autologon](https://docs.microsoft.com/en-au/sysinternals/downloads/autologon) and reboot your instance.
 
-https://www.monitortests.com/forum/Thread-Custom-Resolution-Utility-CRU
-
-
+If you need to setup a custom resolution (e.g. 1800x1200), you might have issues with the native NVidia drivers. [Custom Resolution Utility (CRU)](https://www.monitortests.com/forum/Thread-Custom-Resolution-Utility-CRU) works well, and while the automatic options in Parsec should also work you can [force it to behave too](https://support.parsecgaming.com/hc/en-us/articles/360003146311-Force-A-Server-Resolution-Change).
 
 ## Disk Maintenance
 
