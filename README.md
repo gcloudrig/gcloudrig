@@ -87,9 +87,8 @@ A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.
    - [Configure Parsec to only listen on the ZeroTier IP](https://support.parsecgaming.com/hc/en-us/articles/115002766652-Setting-Up-A-VPN-To-Play-Games-On-A-Virtual-Local-Network), or use the [VPC Firewall](https://cloud.google.com/vpc/docs/using-firewalls) to open up the ports required for Parsec (see [Parsec Port Forwarding](https://support.parsecgaming.com/hc/en-us/articles/115002770371-Setting-Up-Port-Forwarding-On-Your-Router) for guidance).
 -  Double-click the *Disconnect RDP* shortcut on the desktop, which will drop your RDP session back to the local screen.  This bypasses the windows lock screen, which Parsec doesn't have permission to see.
 -  Use [Parsec](https://ui.parsecgaming.com/) to connect back to your instance.
--  Once you're connected, the Parsec logo should be running in your system tray.  Right-click it, and set it *Run when my computer starts*.
--  Uninstall TightVNC.
-   -  If you really want to keep it, lock it down to your Zerotier network's IP range (e.g. `allow 10.147.17.0-10.147.17.255`; `deny 0.0.0.0-255.255.255`).
+-  When you reconnect, the Parsec logo should be running in your system tray.  Right-click it, and set it *Run when my computer starts*.
+-  If everything seems stable, double-click *Post ZeroTier Setup Security* on the desktop to lock down TightVNC and Parsec.
    
 ### Optional setup
 -  Get a free public hostname for your private ZeroTier IP at [Duck DNS](https://www.duckdns.org/).
