@@ -2,16 +2,12 @@
 
 A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.com/sdk/gcloud/) to create and maintain a cloud gaming instance, on the cheap.
 
-Requires `bash`, `gcloud` and `python2.7.x` (required by `gcloud`); or just use [Cloud Shell](https://cloud.google.com/shell/).
-
-## Prerequisites
+### Prerequisites
 -  bash
 -  python 2.7.x
 -  [gcloud sdk](https://cloud.google.com/sdk/install)
-
-- [ZeroTier](https://zerotier.com/)
-- [TightVNC Client](https://www.tightvnc.com/)
-- [Parsec](https://parsecgaming.com/)
+-  [ZeroTier](https://zerotier.com/) (recommended)
+-  [Parsec](https://parsecgaming.com/) (recommended)
 
 ### Specs
 -  8 vCPU (n1-standard-8)
@@ -22,7 +18,7 @@ Requires `bash`, `gcloud` and `python2.7.x` (required by `gcloud`); or just use 
 
 *Cloud responsibly. These scripts are provided as-is, with zero support. At the very least, create a new GCP project.*
 
-## One-time setup (Automatic)
+## Setup
 -  Create a new GCP project
 -  [Launch Cloud Shell](https://cloud.google.com/shell/docs/starting-cloud-shell)
    - Linux/WSL users: Launch a bash shell locally and run `gcloud init`
