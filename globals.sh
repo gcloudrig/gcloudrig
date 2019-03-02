@@ -28,6 +28,13 @@ PROJECT_ID=""
 ZONES=""
 GCSBUCKET=""
 
+
+declare -A SETUPOPTIONS
+SETUPOPTIONS[ZeroTierNetwork]=""
+SETUPOPTIONS[VideoMode]="1920x1080"
+SETUPOPTIONS[InstallSteam]="false"
+SETUPOPTIONS[InstallBattlenet]="false"
+
 ########
 # INIT #
 ########
@@ -64,7 +71,7 @@ function init_setup {
     enable_required_gcloud_apis
   else
     # use gcloud config configurations
-    gcloud_config_setup
+    gcloudrig_config_setup
   fi
 
   # not all accounts seem to have a GPUS_ALL_REGIONS quota
@@ -78,7 +85,49 @@ function init_setup {
   init_common;
 }
 
-function gcloud_config_setup {
+function init_common {
+  GCSBUCKET="gs://$PROJECT_ID"
+  local groupsize=0
+
+  gcloudrig_update_powershell_module 
+
+  # get a comma separated list of zones with accelerators in the current region
+  ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
+  ZONES="${ZONES//[[:space:]]/,}"
+  if [ -z "$ZONES" ] ; then
+    gcloud config unset compute/zone --quiet
+    gcloud config unset compute/region --quiet
+    echo >&2
+    echo "#################################################################" >&2
+    echo "ERROR: There are no zones in $REGION with accelerator type \"$ACCELERATORTYPE\"" >&2
+    echo "Re-run ./setup.sh and choose a region from this list:" >&2
+    echo "$(gcloudrig_get_accelerator_zones)" >&2
+    exit 1
+  fi
+
+  # get the number of instances currently running
+  groupsize=$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(size)" --quiet || echo "0")
+
+  # if an instance is running, expose some more vars
+  if ! [ -z "$groupsize" ] && [ "$groupsize" -gt "0" ]; then
+    INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
+    ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
+    BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
+    gcloud config set compute/zone "$ZONE" --quiet;
+  fi
+
+  # the image 
+  IMAGE=$(gcloudrig_get_bootimage)
+  if [ -z "$IMAGE" ]; then
+    IMAGE="$IMAGEFAMILY"
+  fi
+}
+
+####################
+# Setup functions  #
+####################
+
+function gcloudrig_config_setup {
   # setup a gcloud config manually so we can make sure the user only chooses a
   # region that has GPUs
 
@@ -96,11 +145,17 @@ function gcloud_config_setup {
     if [ -n "$ACCOUNTS" ] ; then
       echo
       echo "Select account to use:"
-      select acct in $ACCOUNTS ; do
-        [ -n "$acct" ] && gcloud config set account $acct && break
+      select acct in $ACCOUNTS "new account"; do
+        if [ -n "$acct" ] ; then
+          if [ "$acct" == "new account" ] ; then
+            gcloud auth login --no-launch-browser && break
+          else
+            gcloud config set account $acct && break
+          fi
+        fi
       done
     else
-      gcloud auth login
+      gcloud auth login --no-launch-browser
     fi
   fi
 
@@ -144,6 +199,91 @@ function gcloud_config_setup {
   fi
 }
 
+function gcloudrig_select_software_options {
+  local installerOptions
+  local keys="$(echo ${!SETUPOPTIONS[@]} | fmt -1 | sort)"
+
+  while true ; do
+    installerOptions=""
+    for key in $keys ; do
+      installerOptions="$installerOptions $key=${SETUPOPTIONS[$key]}"
+    done
+
+    echo
+    select option in $installerOptions Done ; do
+      case "$option" in
+        ZeroTier*)
+          gcloudrig_select_zerotier_network
+          break
+          ;;
+        VideoMode*)
+          gcloudrig_select_videomode
+          break
+          ;;
+        Install*)
+          gcloudrig_select_software_install "$option"
+          break
+          ;;
+        Done)
+          break 2
+          ;;
+      esac
+    done
+  done
+}
+
+function gcloudrig_select_software_install {
+  local package="${1%%=*}"
+  local state="${1##*=}"
+
+  case "$state" in
+    true)
+      SETUPOPTIONS[$package]=false
+      ;;
+    false)
+      SETUPOPTIONS[$package]=true
+      ;;
+  esac
+}
+
+function gcloudrig_select_videomode {
+  local videoModes="960x720 1920x1080 2560x1440 other"
+
+  echo "Select a default videomode:"
+  select mode in $videoModes ; do
+    if [ -n "$mode" ] ; then
+      [ "$mode" == "other" ] && break
+      SETUPOPTIONS[VideoMode]="$mode"
+      break
+    fi
+  done
+}
+
+function gcloudrig_select_zerotier_network {
+  local prompt="Gcloudrig ZeroTier network id [or quit]: " 
+
+  cat <<EOF
+
+We strongly recommend you create a new ZeroTier network for Gcloudrig
+https://my.zerotier.com/network
+
+EOF
+
+  while read -e -p "$prompt" ; do
+    if echo "$REPLY" | grep -Eiq '^[0-9a-f]{16}$' ; then
+      SETUPOPTIONS[ZeroTierNetwork]="$REPLY"
+      return
+    fi
+    case "$REPLY" in
+      q|quit|exit|cancel)
+        break
+        ;;
+      *)
+        echo "ZeroTier Network IDs are 16 hexadecimal numbers" >&2
+    esac
+  done
+}
+
 function gcloudrig_select_region {
 
   local ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
@@ -185,46 +325,6 @@ function enable_required_gcloud_apis {
     gcloud services enable logging.googleapis.com
   fi
 }
-
-function init_common {
-  GCSBUCKET="gs://$PROJECT_ID"
-  local groupsize=0
-
-  gcloudrig_update_powershell_module 
-
-  # get a comma separated list of zones with accelerators in the current region
-  ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
-  ZONES="${ZONES//[[:space:]]/,}"
-  if [ -z "$ZONES" ] ; then
-    gcloud config unset compute/zone --quiet
-    gcloud config unset compute/region --quiet
-    echo >&2
-    echo "#################################################################" >&2
-    echo "ERROR: There are no zones in $REGION with accelerator type \"$ACCELERATORTYPE\"" >&2
-    echo "Re-run ./setup.sh and choose a region from this list:" >&2
-    echo "$(gcloudrig_get_accelerator_zones)" >&2
-    exit 1
-  fi
-
-  # get the number of instances currently running
-  groupsize=$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(size)" --quiet || echo "0")
-
-  # if an instance is running, expose some more vars
-  if ! [ -z "$groupsize" ] && [ "$groupsize" -gt "0" ]; then
-    INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
-    ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
-    BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
-    gcloud config set compute/zone "$ZONE" --quiet;
-  fi
-
-  # the image 
-  IMAGE=$(gcloudrig_get_bootimage)
-  if [ -z "$IMAGE" ]; then
-    IMAGE="$IMAGEFAMILY"
-  fi
-}
-
-
 
 ####################
 # GETTERS (stdout) #
@@ -396,8 +496,20 @@ function gcloudrig_check_quota_gpus_all_regions {
   if [ -v "QUOTAS[GPUS_ALL_REGIONS]" ] ; then
     # gcloud --format option sometimes outputs nothing if the value is 0.0
     if [ -z "${QUOTAS[GPUS_ALL_REGIONS]}" -o "${QUOTAS[GPUS_ALL_REGIONS]}" == "0.0" ] ; then
-      echo "You have to manually request a quota increase for GPUS_ALL_REGIONS" >&2
-      echo "See https://cloud.google.com/compute/quotas#requesting_additional_quota" >&2
+      cat <<EOF >&2
+
+=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+You have to manually request a quota increase for GPUS_ALL_REGIONS
+
+  https://console.cloud.google.com/iam-admin/quotas?project=${PROJECT_ID}&metric=GPUs%20(all%20regions)
+
+See this page for more info on requesting quota:
+  https://cloud.google.com/compute/quotas#requesting_additional_quota
+
+=-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+EOF
       exit 1
     else
       echo "GPUS_ALL_REGIONS quota is ${QUOTAS["GPUS_ALL_REGIONS"]}"
@@ -414,12 +526,50 @@ function gcloudrig_check_quota_gpus_all_regions {
 function gcloudrig_enable_software_setup {
   # set project level metadata that gcloudrig-boot.ps1 will check to start a
   # software install
-  gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=new" --quiet
+  echo "Enabling Gcloudrig software installer..."
+  gcloud compute project-info add-metadata --quiet \
+    --metadata "gcloudrig-setup-state=new" \
+    --metadata-from-file gcloudrig-setup-options=<(gcloudrig_setup_options_to_json) 
+}
+
+function gcloudrig_setup_options_to_json {
+  # all this to avoid asking ppl to install jq...
+  local jsonTemplate='{%s}'
+  local optionTemplate='"%s":"%s"'
+  local booleanTemplate='"%s":%s'
+  local optionString=""
+  local key value
+
+  if [ "${#SETUPOPTIONS[@]}" -eq 0 ] ; then
+    return
+  fi
+
+  for key in "${!SETUPOPTIONS[@]}" ; do
+    value="${SETUPOPTIONS[$key]}"
+    value="${value//\'}" # nuke single quotes
+    value="${value//\"}" # nuke double quotes
+    if [ "$value" == "true" -o "$value" == "false" ] ; then
+      optionString="$(printf "$booleanTemplate" "$key" "$value"),$optionString"
+    else
+      optionString="$(printf "$optionTemplate" "$key" "$value"),$optionString"
+    fi
+  done
+
+  # trim any trailing ','
+  optionString="${optionString%,}"
+
+  printf "$jsonTemplate" "$optionString"
+}
+
+# TODO store the password somewhere safer
+function gcloudrig_get_password_from_logs {
+  gcloud logging read "logName=projects/$PROJECT_ID/logs/gcloudrig-install AND textPayload:password" --format="value(textPayload)" --limit=1
 }
 
 # create GCS bucket, don't fail if it already exists
 function gcloudrig_create_gcs_bucket {
   local err result
+  GCSBUCKET="${GCSBUCKET:-gs://$PROJECT_ID}"
 
   set +e
   result="$(gsutil -q mb -p "$PROJECT_ID" -c regional \

@@ -12,14 +12,12 @@ DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 source "$DIR/globals.sh"
 init_setup # init_gcloudrig;
 
-# # create/recreate instance group; uses the startup template by default
-gcloudrig_delete_instance_group
-gcloudrig_create_instance_group
-
+echo
 while read -n 1 -p "Would you like to automatically install some things? [y/n] " ; do
   case $REPLY in
     y|Y)
       echo
+      gcloudrig_select_software_options
       gcloudrig_enable_software_setup
       break
       ;;
@@ -29,5 +27,9 @@ while read -n 1 -p "Would you like to automatically install some things? [y/n] "
       ;;
   esac
 done
+
+# create/recreate instance group; uses the startup template by default
+gcloudrig_delete_instance_group
+gcloudrig_create_instance_group
 
 echo "Done!  Run './scale-up.sh' to start your instance."
