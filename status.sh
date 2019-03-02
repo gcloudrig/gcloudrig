@@ -44,14 +44,18 @@ else
     echo "current configuration is:"
     echo
     echo "Instance group: $INSTANCEGROUP"
-    echo "      template: $(basename $instanceTemplate)"
+    echo "      template: ${instanceTemplate##*/}"
     echo
     echo "    boot image: $tmplBootImage"
     echo "           GPU: $tmplGPU"
     echo
   fi
-
+  
   # check for games disk snapshots
-  echo "Latest games disk snapshot: $(gcloud compute snapshots list  --format "value(name)" --filter "labels.$GCRLABEL=true labels.latest=true" --quiet)"
+  gamesDiskSnapshot="$(gcloud compute snapshots list  --format "value(name)" --filter "labels.$GCRLABEL=true labels.latest=true" --quiet)"
+  if [ -n "$gamesDiskSnapshot" ] ; then
+    echo "    Games disk"
+    echo "      snapshot: $gamesDiskSnapshot"
+  fi
 fi
 

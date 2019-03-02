@@ -6,6 +6,7 @@ Function Write-Status {
     [parameter(Mandatory=$true,ValueFromPipeLine=$true)] [String] $Text,
     [String] $Sev = "INFO"
   )
+  # this goes to the serial console
   "$Sev $Text" | Write-Output
   New-GcLogEntry -Severity "$Sev" -LogName gcloudrig-install -TextPayload "$Text"
 }
@@ -67,38 +68,6 @@ function Initialize-NewDisk {
   }
 }
 
-Function Run-Software-Setup {
-  Write-Status -Sev DEBUG "gcloudrig-boot.ps1: Run-Software-Setup"
-
-  # fail fast if install is complete
-  If (Test-Path $SetupCompleteFile) {
-    Write-Status -Sev DEBUG "gcloudrig-boot.ps1: $SetupCompleteFile found! all done."
-    return
-  }
-
-  $SetupStateExists=(Get-GceMetadata -Path "project/attributes" | Select-String $SetupStateAttribute)
-  if ($SetupStateExists) {
-    $SetupState=(Get-GceMetadata -Path "project/attributes/$SetupStateAttribute")
-    switch($SetupState) {
-      "new" {
-        if (Get-Module -ListAvailable -Name gCloudRig) {
-          Import-Module gCloudRig
-          Install-Bootstrap
-        } Else {
-          Write-Status -Sev ERROR "Cannot boostrap, failed to import gcloudrig.psm1"
-        }
-        break
-      }
-      default {
-        Write-Status -Sev DEBUG ("gcloudrig-boot.ps1: setup state $_")
-        break
-      }
-    }
-  } Else {
-    Write-Status -Sev DEBUG ("gcloudrig-boot.ps1: project/attributes/$SetupStateAttribute not set")
-  }
-}
-
 Function Update-GcloudRigModule {
   if (Get-GceMetadata -Path "project/attributes" | Select-String $SetupScriptUrlAttribute) {
     $SetupScriptUrl=(Get-GceMetadata -Path project/attributes/$SetupScriptUrlAttribute)
@@ -112,20 +81,19 @@ Function Update-GcloudRigModule {
 }
 
 
-# main
+## Main
 Write-Status -Sev DEBUG "gcloudrig-boot.ps1 started"
 
 # these need to match globals.sh
 $GCRLABEL="gcloudrig"
 $GamesDiskName="gcloudrig-games"
 $SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
-$SetupStateAttribute="gcloudrig-setup-state"
-
-# this needs to match gcloudrig.psm1
-$SetupCompleteFile="C:\gcloudrig\installer.complete"
 
 Update-GcloudRigModule 
-Run-Software-Setup
+if (Get-Module -ListAvailable -Name gCloudRig) {
+  Import-Module gCloudRig
+  Invoke-SoftwareSetupFromBoot
+}
 Mount-GamesDisk
 
 Write-Status -Sev DEBUG "gcloudrig-boot.ps1 finished"
