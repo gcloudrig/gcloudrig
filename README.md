@@ -72,11 +72,6 @@ A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.
    Done!  Run './scale-up.sh' to start your instance.
 
    ````
--  If anything goes wrong during setup, start over with these commands
-   ````
-   $ ./destroy.sh
-   $ ./setup.sh
-   ````
 - Run `./scale-up.sh` to start your instance.
    - Your instance will launch and automatically start installing software, which will take around 10-20 mins to finish.  Open the [Log Viewer](https://console.cloud.google.com/logs/viewer?resource=global&minLogLevel=200) to track it's progress.
 
@@ -94,7 +89,7 @@ A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.
 -  Get a free public hostname for your private ZeroTier IP at [Duck DNS](https://www.duckdns.org/).
    -  If you want a hostname for your dynamic public IP as well, you'll need to install a DDNS client or a startup script.
 - Restrict public access to RDP ports by modifying the `default-allow-rdp` rule in [VPC Firewall](https://cloud.google.com/vpc/docs/using-firewalls).
-  
+
 
 ## Manual software installation
 If you answered No to automatic installation during `./setup.sh`, run `./scale-up.sh` and a clean Windows Server instance will be created.
@@ -124,14 +119,21 @@ We recomend the following software, but feel free to find your own:
   Once stopped, it will take a few minutes to create a copy of both boot and
   games disks.  Read [Disk maintenance](#disk-maintenance) below for more info.
 
-## Notes/FAQ/Common Issues
+## Troubleshooting
+If you're having difficulty connecting with a game streaming client, use RDP or TightVNC to access your machine.
+- RDP is more reliable, but can't be used to control the "physical" virtual monitor causing a lock screen to appear (which upsets most streaming clients)
+- TightVNC can control the "physical" virtual montior and interact with the lock screen, but is less reliable and less secure.
 
-Connecting with RDP will disconnect your "physical" session on the virtual monitor.  Doing so will show the windows lock screen on the virtual monitor, which upsets most streaming clients.  If you find yourself in this situation, you have a few options:
-- use an *Disconnect RDP* shortcut on your desktop (instructions: (steamcommunity.com/groups/homestream/discussions/0/617335934139051123)[https://steamcommunity.com/groups/homestream/discussions/0/617335934139051123/])
-- connect with TightVNC, which can interact with the lock screen and just login
-- Configure [autologon](https://docs.microsoft.com/en-au/sysinternals/downloads/autologon) and reboot your instance.
+If you forget your password, use `./reset-windows-password.sh` to get a new one.  If you want to keep [Autologon](https://docs.microsoft.com/en-au/sysinternals/downloads/autologon) working, you'll need to update it with your new password.
+
 
 If you need to setup a custom resolution (e.g. 1800x1200), you might have issues with the native NVidia drivers. [Custom Resolution Utility (CRU)](https://www.monitortests.com/forum/Thread-Custom-Resolution-Utility-CRU) works well, and while the automatic options in Parsec should also work you can [force it to behave too](https://support.parsecgaming.com/hc/en-us/articles/360003146311-Force-A-Server-Resolution-Change).
+
+If you need a nuclear option, delete everything and start over with these commands:
+````
+$ ./destroy.sh
+$ ./setup.sh
+````
 
 ## Disk Maintenance
 
