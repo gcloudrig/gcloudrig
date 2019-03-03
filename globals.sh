@@ -62,6 +62,15 @@ function init_gcloudrig {
     fi
   fi
 
+  # if we don't have a project id or region yet
+  if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
+    # check if we're running in cloudshell, since it likes to eat gcloud configs
+    GCE_ATTRIBUTE_BASE_SERVER_URL="$(curl -H "Metadata-Flavor: Google" metadata/computeMetadata/v1/instance/attributes/base-server-url)"
+    if [ $GCE_ATTRIBUTE_BASE_SERVER_URL == "https://ssh.cloud.google.com" ]; then
+      gcloudrig_config_setup
+    fi
+  fi
+
   # if we still don't have a project id or region, bail and ask user to run setup
   if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
     [ -z "$PROJECT_ID" ] && echo "Missing config 'core/project'" >&2
