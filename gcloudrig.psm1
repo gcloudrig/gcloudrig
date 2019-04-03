@@ -287,7 +287,7 @@ Function Install-7Zip {
 }
 
 Function Install-PackageTools {
-  # TODO replace with Chocolatey
+  Install-Chocolatey
 
   # 7za needed for extracting some exes
   Install-7Zip
@@ -397,6 +397,14 @@ Function Install-Steam {
 -Command "Stop-Process -Name "Steam" -Force -ErrorAction SilentlyContinue ; & 'C:\Program Files (x86)\Steam\Steam.exe'"
 '@
   Register-ScheduledTask -Action $action -Description "called by SSM to restart steam. necessary to avoid being stuck in Session 0 desktop." -Force -TaskName "gCloudRig Restart Steam" -TaskPath "\"
+}
+
+Function Install-Chocolatey {
+  Write-Status "Install Chocolatey..."
+  Save-UrlToFile -URL "https://chocolatey.org/install.ps1" -File "c:\gcloudrig\downloads\chocolatey-install.ps1"
+  If(Test-Path "c:\gcloudrig\downloads\chocolatey-install.ps1") {
+    & "c:\gcloudrig\downloads\chocolatey-install.ps1" 2>&1  | Out-File -Append "c:\gcloudrig\installer.txt"
+  }
 }
 
 Function Install-VBAudioCable {
