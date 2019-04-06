@@ -297,6 +297,17 @@ Function Install-PackageTools {
   Install-PackageProvider -Name NuGet -Force
 }
 
+Function Install-ChocolateyPackage {
+  Param (
+    [parameter(Mandatory=$true)] [String] $Package
+  )
+
+  # if params 
+  # --install-arguments=VALUE
+
+  & choco install $Package -y -limitoutput --ignoredetectedreboot --no-progress 2>&1 | Out-File -Append "c:\gcloudrig\installer.txt"
+}
+
 Function Install-ZeroTier {
   Param (
     [AllowNull()] [String] $Network
