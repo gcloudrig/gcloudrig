@@ -18,6 +18,7 @@ workflow Install-gCloudRig {
   #    "ZeroTierNetwork"   = $null
   #    "InstallBattlenet"  = $false
   #    "InstallSteam"      = $false
+  #    "InstallSSH"        = $false
   #  }
 
   Set-SetupState "installing"
@@ -144,13 +145,13 @@ Function Install-OptionalSoftware {
     [parameter(Mandatory=$true)] [Hashtable] $InstallOptions
   )
 
-  If(Get-HashValue $InstallOptions "InstallBattlenet" $false) {
-    Install-Battlenet
-  }
-  If(Get-HashValue $InstallOptions "InstallSteam" $false) {
-    Install-Steam 
-  }
-
+  $InstallOptions.Keys `
+    | Where {$_ -like "Install*"} `
+    | Where {$InstallOptions.$_} `
+    | ForEach {                          
+        $funcName=$_.Replace("Install", "Install-")
+        Invoke-Command (Get-Item "function:$funcName").ScriptBlock
+      }
 }
 
 Function New-GcloudrigDirs {
@@ -299,13 +300,16 @@ Function Install-PackageTools {
 
 Function Install-ChocolateyPackage {
   Param (
-    [parameter(Mandatory=$true)] [String] $Package
+    [parameter(Mandatory=$true)] [String] $Package,
+    [Parameter(ValueFromRemainingArguments=$true)] [String[]] $InstallParams
   )
 
-  # if params 
-  # --install-arguments=VALUE
+  $extraInstallParams=""
+  ForEach($InstallParam in $InstallParams) {
+    $extraInstallParams += ("-ia {0} " -f $InstallParam)
+  }
 
-  & choco install $Package -y -limitoutput --ignoredetectedreboot --no-progress 2>&1 | Out-File -Append "c:\gcloudrig\installer.txt"
+  & choco install $Package -y -limitoutput --ignoredetectedreboot --no-progress $extraInstallParams 2>&1 | Out-File -Append "c:\gcloudrig\installer.txt"
 }
 
 Function Install-ZeroTier {
@@ -408,6 +412,16 @@ Function Install-Steam {
 -Command "Stop-Process -Name "Steam" -Force -ErrorAction SilentlyContinue ; & 'C:\Program Files (x86)\Steam\Steam.exe'"
 '@
   Register-ScheduledTask -Action $action -Description "called by SSM to restart steam. necessary to avoid being stuck in Session 0 desktop." -Force -TaskName "gCloudRig Restart Steam" -TaskPath "\"
+}
+
+Function Install-SSH {
+  Write-Status "Installing SSH..."
+
+  Install-ChocolateyPackage OpenSSH '"/SSHServerFeature"' 
+
+  # Set login shell as Powershell
+  New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force
+  New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShellCommandOption -Value "/c" -PropertyType String -Force
 }
 
 Function Install-Chocolatey {

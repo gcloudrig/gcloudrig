@@ -34,6 +34,7 @@ SETUPOPTIONS[ZeroTierNetwork]=""
 SETUPOPTIONS[VideoMode]="1920x1080"
 SETUPOPTIONS[InstallSteam]="false"
 SETUPOPTIONS[InstallBattlenet]="false"
+SETUPOPTIONS[InstallSSH]="false"
 
 ########
 # INIT #
