@@ -304,12 +304,7 @@ Function Install-ChocolateyPackage {
     [Parameter(ValueFromRemainingArguments=$true)] [String[]] $InstallParams
   )
 
-  $extraInstallParams=""
-  ForEach($InstallParam in $InstallParams) {
-    $extraInstallParams += ("-ia {0} " -f $InstallParam)
-  }
-
-  & choco install $Package -y -limitoutput --ignoredetectedreboot --no-progress $extraInstallParams 2>&1 | Out-File -Append "c:\gcloudrig\installer.txt"
+  & choco install $Package -y -limitoutput --ignoredetectedreboot --no-progress $InstallParams 2>&1 | Out-File -Append "c:\gcloudrig\installer.txt"
 }
 
 Function Install-ZeroTier {
@@ -417,7 +412,7 @@ Function Install-Steam {
 Function Install-SSH {
   Write-Status "Installing SSH..."
 
-  Install-ChocolateyPackage OpenSSH '"/SSHServerFeature"' 
+  Install-ChocolateyPackage OpenSSH -params '"/SSHServerFeature"' 
 
   # Set login shell as Powershell
   New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force
@@ -663,8 +658,7 @@ Function Install-NvidiaDrivers {
   # download if newer than current install
   Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" |
    Where { $_.Name -like "*_grid_win10_server2016_64bit_international.exe" } |
-   Sort -property Name |
-   Select-Object -Last 1 |
+   Sort -Property Name -Descending |
    ForEach-Object { 
      $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
      If ( $thisVersion -gt $currentVersion ) { 
@@ -675,16 +669,22 @@ Function Install-NvidiaDrivers {
        Write-Status "Install-NvidiaDrivers: want to install $thisVersion (upgrade from: $currentVersion)"
        Write-Status -Sev DEBUG ("Install-NvidiaDrivers: download {0}" -f $_.Name)
        Read-GcsObject -InputObject $_ -OutFile $outFile -Force
+       # TODO check exit code
        # if download succeeded, install
-       If (Test-Path $outFile) {
+       If ((Test-Path $outFile) -And (Get-Item $outFile).length -gt 0) {
          Write-Status -Sev DEBUG "Install-NvidiaDrivers: extract $outFile"
          & c:\gcloudrig\7zip\7z.exe x -y $outFile -o"$nvidiaDir" 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
          Write-Status -Sev DEBUG "Install-NvidiaDrivers: run $nvidiaSetup"
          & $nvidiaSetup -noreboot -clean -s 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+         # TODO check exit code
          Write-Status "Install-NvidiaDrivers: $nvidiaSetup done."
+         Break
+       } Else {
+         Write-Status -Sev ERROR "Failed to get $_"
        }
      } Else { 
        Write-Status "Install-NvidiaDrivers: current: $currentVersion >= latest: $thisVersion"
+       Break
      }
    }
 }
