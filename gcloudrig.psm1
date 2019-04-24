@@ -18,6 +18,7 @@ workflow Install-gCloudRig {
   #    "ZeroTierNetwork"   = $null
   #    "InstallBattlenet"  = $false
   #    "InstallSteam"      = $false
+  #    "InstallSSH"        = $false
   #  }
 
   Set-SetupState "installing"
@@ -144,13 +145,13 @@ Function Install-OptionalSoftware {
     [parameter(Mandatory=$true)] [Hashtable] $InstallOptions
   )
 
-  If(Get-HashValue $InstallOptions "InstallBattlenet" $false) {
-    Install-Battlenet
-  }
-  If(Get-HashValue $InstallOptions "InstallSteam" $false) {
-    Install-Steam 
-  }
-
+  $InstallOptions.Keys `
+    | Where {$_ -like "Install*"} `
+    | Where {$InstallOptions.$_} `
+    | ForEach {                          
+        $funcName=$_.Replace("Install", "Install-")
+        Invoke-Command (Get-Item "function:$funcName").ScriptBlock
+      }
 }
 
 Function New-GcloudrigDirs {
@@ -287,7 +288,7 @@ Function Install-7Zip {
 }
 
 Function Install-PackageTools {
-  # TODO replace with Chocolatey
+  Install-Chocolatey
 
   # 7za needed for extracting some exes
   Install-7Zip
@@ -295,6 +296,15 @@ Function Install-PackageTools {
   # package manager stuff
   Write-Status "Installing NuGet Package Provider"
   Install-PackageProvider -Name NuGet -Force
+}
+
+Function Install-ChocolateyPackage {
+  Param (
+    [parameter(Mandatory=$true)] [String] $Package,
+    [Parameter(ValueFromRemainingArguments=$true)] [String[]] $InstallParams
+  )
+
+  & choco install $Package -y -limitoutput --ignoredetectedreboot --no-progress $InstallParams 2>&1 | Out-File -Append "c:\gcloudrig\installer.txt"
 }
 
 Function Install-ZeroTier {
@@ -397,6 +407,24 @@ Function Install-Steam {
 -Command "Stop-Process -Name "Steam" -Force -ErrorAction SilentlyContinue ; & 'C:\Program Files (x86)\Steam\Steam.exe'"
 '@
   Register-ScheduledTask -Action $action -Description "called by SSM to restart steam. necessary to avoid being stuck in Session 0 desktop." -Force -TaskName "gCloudRig Restart Steam" -TaskPath "\"
+}
+
+Function Install-SSH {
+  Write-Status "Installing SSH..."
+
+  Install-ChocolateyPackage OpenSSH -params '"/SSHServerFeature"' 
+
+  # Set login shell as Powershell
+  New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force
+  New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShellCommandOption -Value "/c" -PropertyType String -Force
+}
+
+Function Install-Chocolatey {
+  Write-Status "Install Chocolatey..."
+  Save-UrlToFile -URL "https://chocolatey.org/install.ps1" -File "c:\gcloudrig\downloads\chocolatey-install.ps1"
+  If(Test-Path "c:\gcloudrig\downloads\chocolatey-install.ps1") {
+    & "c:\gcloudrig\downloads\chocolatey-install.ps1" 2>&1  | Out-File -Append "c:\gcloudrig\installer.txt"
+  }
 }
 
 Function Install-VBAudioCable {
@@ -630,8 +658,7 @@ Function Install-NvidiaDrivers {
   # download if newer than current install
   Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" |
    Where { $_.Name -like "*_grid_win10_server2016_64bit_international.exe" } |
-   Sort -property Name |
-   Select-Object -Last 1 |
+   Sort -Property Name -Descending |
    ForEach-Object { 
      $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
      If ( $thisVersion -gt $currentVersion ) { 
@@ -642,16 +669,22 @@ Function Install-NvidiaDrivers {
        Write-Status "Install-NvidiaDrivers: want to install $thisVersion (upgrade from: $currentVersion)"
        Write-Status -Sev DEBUG ("Install-NvidiaDrivers: download {0}" -f $_.Name)
        Read-GcsObject -InputObject $_ -OutFile $outFile -Force
+       # TODO check exit code
        # if download succeeded, install
-       If (Test-Path $outFile) {
+       If ((Test-Path $outFile) -And (Get-Item $outFile).length -gt 0) {
          Write-Status -Sev DEBUG "Install-NvidiaDrivers: extract $outFile"
          & c:\gcloudrig\7zip\7z.exe x -y $outFile -o"$nvidiaDir" 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
          Write-Status -Sev DEBUG "Install-NvidiaDrivers: run $nvidiaSetup"
          & $nvidiaSetup -noreboot -clean -s 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+         # TODO check exit code
          Write-Status "Install-NvidiaDrivers: $nvidiaSetup done."
+         Break
+       } Else {
+         Write-Status -Sev ERROR "Failed to get $_"
        }
      } Else { 
        Write-Status "Install-NvidiaDrivers: current: $currentVersion >= latest: $thisVersion"
+       Break
      }
    }
 }

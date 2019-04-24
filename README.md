@@ -33,6 +33,8 @@ A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.
    
    Created [gcloudrig].
    Activated [gcloudrig].
+
+   You can use http://gcping.com to find the closest region
    
    Select a region to use:
    1) asia-southeast1          5) us-central1

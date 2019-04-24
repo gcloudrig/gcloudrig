@@ -34,6 +34,7 @@ SETUPOPTIONS[ZeroTierNetwork]=""
 SETUPOPTIONS[VideoMode]="1920x1080"
 SETUPOPTIONS[InstallSteam]="false"
 SETUPOPTIONS[InstallBattlenet]="false"
+SETUPOPTIONS[InstallSSH]="false"
 
 ########
 # INIT #
@@ -288,6 +289,8 @@ function gcloudrig_select_region {
 
   local ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
   if [ -n "$ACCELERATORREGIONS" ] ; then
+    echo
+    echo "You can use http://gcping.com to find the closest region"
     echo
     echo "Select a region to use:"
     select REGION in $ACCELERATORREGIONS ; do
