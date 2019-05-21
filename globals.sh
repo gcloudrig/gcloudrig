@@ -50,6 +50,11 @@ function init_gcloudrig {
 
   if [ -z "$REGION" ]; then
     REGION="$(gcloud config get-value compute/region --quiet 2> /dev/null)"
+    
+    # Cloud Shell doesn't persist configurations, so look at project metadata instead
+    if [ -z "$REGION" ]; then
+      REGION="$(gcloud compute project-info describe --project=$PROJECT_ID --format 'value(commonInstanceMetadata.items[google-compute-default-region])' --quiet 2> /dev/null)"
+    fi
   fi
 
   # if we still don't have a project id or region, bail and ask user to run setup
@@ -193,7 +198,7 @@ function gcloudrig_config_setup {
   # this is required before we can check for regions with GPUs
   enable_required_gcloud_apis
 
-  # check default region is set, if not select one from regions with accelerators
+  # check default region is set in configuration, if not select one from regions with accelerators
   REGION="$(gcloud config get-value compute/region 2>/dev/null)"
   if [ -z "$REGION" ] ; then
     gcloudrig_select_region
@@ -294,7 +299,8 @@ function gcloudrig_select_region {
     echo
     echo "Select a region to use:"
     select REGION in $ACCELERATORREGIONS ; do
-      [ -n "$REGION" ] && gcloud config set compute/region $REGION && break
+      [ -n "$REGION" ] && gcloud config set compute/region $REGION && gcloud compute project-info add-metadata \
+    --metadata google-compute-default-region=$REGION && break
     done
   else
     echo >&2
