@@ -53,7 +53,7 @@ function init_gcloudrig {
     
     # Cloud Shell doesn't persist configurations, so look at project metadata instead
     if [ -z "$REGION" ]; then
-      REGION="$(gcloud compute project-info describe --project=$PROJECT_ID --format 'value(commonInstanceMetadata.items[\"google-compute-default-region\"])')"
+      REGION="$(gcloud compute project-info describe --project=$PROJECT_ID --format 'value(commonInstanceMetadata.items[google-compute-default-region])' --quiet 2> /dev/null)"
     fi
   fi
 
