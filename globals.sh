@@ -745,7 +745,7 @@ function gcloudrig_games_disk_to_snapshot {
   gcloud compute disks snapshot "$GAMESDISK" \
     --snapshot-names "$newsnapshot" \
     --zone "$ZONE" \
-    --snapshot-location "$REGION" \
+    --storage-location "$REGION" \
     --guest-flush \
     --quiet &>/dev/null
 
