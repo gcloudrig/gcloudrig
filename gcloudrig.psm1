@@ -441,11 +441,12 @@ Function Install-VBAudioCable {
       Expand-Archive -LiteralPath "c:\gcloudrig\downloads\vbcable.zip" -DestinationPath "c:\gcloudrig\downloads\vbcable"
       (Get-AuthenticodeSignature -FilePath "c:\gcloudrig\downloads\vbcable\vbaudio_cable64_win7.cat").SignerCertificate | Export-Certificate -Type CERT -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer"
       Import-Certificate -FilePath "c:\gcloudrig\downloads\vbcable\vbcable.cer" -CertStoreLocation 'Cert:\LocalMachine\TrustedPublisher'
-      & c:\gcloudrig\downloads\vbcable\VBCABLE_Setup_x64.exe -i
-
-      # AFAIK no silent install, so kill the process after giving it time to finish installing
-      Sleep 10
-      Get-Process | Where { $_.ProcessName -eq "VBCABLE_Setup_x64" } | Stop-Process
+      & c:\gcloudrig\downloads\vbcable\VBCABLE_Setup_x64.exe -h -i -H -n
+      # VoicemeeterSetup.exe uses "-h -i -H -n"
+      # per https://www.hybrid-analysis.com/sample/963b71526274f236ddc82e6becf1ef501310ffda47100d3be52b9c8e3ca9b937?environmentId=120
+      
+      # give the new device time to settle
+      Sleep 2
 
       Import-Module DeviceManagement
       if ($(Get-Device | where Name -eq "VB-Audio Virtual Cable").count -eq 0) {
