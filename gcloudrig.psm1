@@ -421,6 +421,7 @@ Function Install-SSH {
 
 Function Install-Chocolatey {
   Write-Status "Install Chocolatey..."
+  $env:chocolateyUseWindowsCompression = 'true'
   Save-UrlToFile -URL "https://chocolatey.org/install.ps1" -File "c:\gcloudrig\downloads\chocolatey-install.ps1"
   If(Test-Path "c:\gcloudrig\downloads\chocolatey-install.ps1") {
     & "c:\gcloudrig\downloads\chocolatey-install.ps1" 2>&1  | Out-File -Append "c:\gcloudrig\installer.txt"
