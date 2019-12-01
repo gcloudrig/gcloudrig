@@ -659,7 +659,7 @@ Function Install-NvidiaDrivers {
   # Query GCS for the latest nVidia GRID driver
   # download if newer than current install
   Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" |
-   Where { $_.Name -like "*_grid_win10_server2016_64bit_international.exe" } |
+   Where { $_.Name -like "*_grid_*_server2019_*.exe" } |
    Sort -Property Name -Descending |
    ForEach-Object { 
      $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
