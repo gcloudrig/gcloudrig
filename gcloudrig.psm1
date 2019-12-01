@@ -95,7 +95,18 @@ workflow Install-gCloudRig {
     $(date) | Out-File "c:\gcloudrig\installer.complete"
     Disable-GcloudrigInstaller
     Set-SetupState "complete"
+    Write-Status "-----------------------"
     Write-Status "------ All done! ------"
+    Write-Status "-----------------------"
+
+    $login_pw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword
+    $vnc_pw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
+
+    Write-Status "------ Passwords ------"
+    Write-Status "Windows/RDP Username: gcloudrig"
+    Write-Status "Windows/RDP Password: $login_pw"
+    Write-Status "VNC Password: $vnc_pw"
+    Write-Status "-----------------------"
   }
 }
 
