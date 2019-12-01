@@ -15,6 +15,7 @@ workflow Install-gCloudRig {
   #    "TimeZone"          = "Americas/Los_Angeles"
   #    "Set1610VideoModes" = $false
   #    "VideoMode"         = "1920x1080"
+  #    "DisplayScaling"    = "96"
   #    "ZeroTierNetwork"   = $null
   #    "InstallBattlenet"  = $false
   #    "InstallSteam"      = $false
@@ -59,6 +60,7 @@ workflow Install-gCloudRig {
       Set-1610VideoModes 
     }
     Set-GcloudrigDisplayResolution (Get-HashValue $Using:Options "VideoMode")
+    Set-DisplayScaling (Get-HashValue $Using:Options "DisplayScaling")
   }
 
   Write-Status "Rebooting(4/6)..."
@@ -584,6 +586,20 @@ Function Set-GcloudrigDisplayResolution {
     }
     Set-DisplayResolution -Width $width -Height $height -Force
   }
+}
+
+Function Set-DisplayScaling {
+  Param (
+    [parameter(Mandatory=$true) [String] $DPI
+  )
+  $REG = "HKCU:\Control Panel\Desktop"
+
+  if($DPI -eq 96) {
+     Set-ItemProperty -Path $REG -Name Win8DpiScaling 0
+  } else {
+     Set-ItemProperty -Path $REG -Name Win8DpiScaling 1
+  }
+  Set-ItemProperty -Path $REG -Name LogPixels -Value $DPI
 }
 
 Function Set-SetupState {

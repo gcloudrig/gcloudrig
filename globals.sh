@@ -32,6 +32,7 @@ GCSBUCKET=""
 declare -A SETUPOPTIONS
 SETUPOPTIONS[ZeroTierNetwork]=""
 SETUPOPTIONS[VideoMode]="1920x1080"
+SETUPOPTIONS[DisplayScaling]=""
 SETUPOPTIONS[InstallSteam]="false"
 SETUPOPTIONS[InstallBattlenet]="false"
 SETUPOPTIONS[InstallSSH]="false"
@@ -226,6 +227,10 @@ function gcloudrig_select_software_options {
           gcloudrig_select_videomode
           break
           ;;
+        DisplayScaling*)
+          gcloudrig_select_displayscaling
+          break
+          ;;
         Install*)
           gcloudrig_select_software_install "$option"
           break
@@ -260,6 +265,19 @@ function gcloudrig_select_videomode {
     if [ -n "$mode" ] ; then
       [ "$mode" == "other" ] && break
       SETUPOPTIONS[VideoMode]="$mode"
+      break
+    fi
+  done
+}
+
+function gcloudrig_select_displayscaling {
+  local DPI_modes="96 144 other"
+
+  echo "Select DPI Display Scaling:"
+  select mode in $DPI_modes ; do
+    if [ -n "$mode" ] ; then
+      [ "$mode" == "other" ] && break
+      SETUPOPTIONS[DisplayScaling]="$mode"
       break
     fi
   done
