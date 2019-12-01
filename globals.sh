@@ -9,8 +9,8 @@ INSTANCETYPE="n1-standard-8"
 BOOTTYPE="pd-ssd"
 
 # base image?
-IMAGEBASEFAMILY="windows-2016"
-IMAGEBASEPROJECT="windows-cloud"
+IMAGEBASEFAMILY="windows-2019"
+IMAGEBASEPROJECT_ID="windows-cloud"
 
 # various resource and label names
 GCRLABEL="gcloudrig" # also set in gcloudrig-startup.ps1
@@ -24,7 +24,7 @@ WINDOWSUSER="gcloudrig"
 
 # other globals; overrides may be ignored
 REGION=""
-PROJECT_ID=""
+PROJECT_ID_ID=""
 ZONES=""
 GCSBUCKET=""
 
@@ -44,22 +44,22 @@ function init_gcloudrig {
 
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
-  if [ -z "$PROJECT_ID" ]; then
-    PROJECT_ID="$(gcloud config get-value core/project --quiet 2> /dev/null)"
+  if [ -z "$PROJECT_ID_ID" ]; then
+    PROJECT_ID_ID="$(gcloud config get-value core/project_ID --quiet 2> /dev/null)"
   fi
 
   if [ -z "$REGION" ]; then
     REGION="$(gcloud config get-value compute/region --quiet 2> /dev/null)"
     
-    # Cloud Shell doesn't persist configurations, so look at project metadata instead
+    # Cloud Shell doesn't persist configurations, so look at project_ID metadata instead
     if [ -z "$REGION" ]; then
-      REGION="$(gcloud compute project-info describe --project=$PROJECT_ID --format 'value(commonInstanceMetadata.items[google-compute-default-region])' --quiet 2> /dev/null)"
+      REGION="$(gcloud compute project_ID-info describe --project_ID=$PROJECT_ID_ID --format 'value(commonInstanceMetadata.items[google-compute-default-region])' --quiet 2> /dev/null)"
     fi
   fi
 
-  # if we still don't have a project id or region, bail and ask user to run setup
-  if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
-    [ -z "$PROJECT_ID" ] && echo "Missing config 'core/project'" >&2
+  # if we still don't have a project_ID id or region, bail and ask user to run setup
+  if [ -z "$PROJECT_ID_ID" ] || [ -z "$REGION" ]; then
+    [ -z "$PROJECT_ID_ID" ] && echo "Missing config 'core/project_ID'" >&2
     [ -z "$REGION" ] && echo "Missing config 'compute/region'" >&2
     echo "Please run './setup.sh'" >&2
     exit 1
@@ -72,7 +72,7 @@ function init_setup {
 
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
-  if [ -n "$REGION" -a -n "$PROJECT_ID" ] ; then
+  if [ -n "$REGION" -a -n "$PROJECT_ID_ID" ] ; then
     # using settings at the top of this file
     enable_required_gcloud_apis
   else
@@ -92,7 +92,7 @@ function init_setup {
 }
 
 function init_common {
-  GCSBUCKET="gs://$PROJECT_ID"
+  GCSBUCKET="gs://$PROJECT_ID_ID"
   local groupsize=0
 
   gcloudrig_update_powershell_module 
@@ -165,9 +165,9 @@ function gcloudrig_config_setup {
     fi
   fi
 
-  # check if default project is set, if not select/create one
-  PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
-  if [ -z "$PROJECT_ID" ] ; then
+  # check if default project_ID is set, if not select/create one
+  PROJECT_ID_ID="$(gcloud config get-value project_ID 2>/dev/null)"
+  if [ -z "$PROJECT_ID_ID" ] ; then
     declare -A PROJECTS
     for line in $(gcloud projects list --format="csv[no-heading](name,project_id)") ; do
       PROJECTS[${line%%,*}]=${line##*,} 
@@ -411,6 +411,7 @@ function gcloudrig_create_instance_template {
       --no-boot-disk-auto-delete \
       --no-restart-on-failure \
       --format "value(name)" \
+      --preemptible \
       --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
       --quiet || echo
 }
@@ -436,6 +437,7 @@ function gcloudrig_create_instance_group {
     --size "0" \
     --template "$templateName" \
     --zones "$ZONES" \
+    --metadata serial-port-logging-enable=true \
     --format "value(name)" \
     --quiet
 }
@@ -660,6 +662,8 @@ function gcloudrig_start {
   INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
   ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
   BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
+
+  echo "To watch boot/setup progress, visit `https://console.cloud.google.com/logs/viewer?project=$PROJECT_ID&advancedFilter=logName%3D%22projects%2F$PROJECT_ID%2Flogs%2Fgcloudrig-install%22`"
 }
 
 # scale to 0 and wait
@@ -745,6 +749,7 @@ function gcloudrig_games_disk_to_snapshot {
   gcloud compute disks snapshot "$GAMESDISK" \
     --snapshot-names "$newsnapshot" \
     --zone "$ZONE" \
+    --storage-location "$REGION" \
     --guest-flush \
     --quiet &>/dev/null
 

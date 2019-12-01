@@ -1,12 +1,17 @@
 # gcloudrig-boot.ps1
 #
 
+# these need to match globals.sh
+$GCPLabel="gcloudrig"
+$GamesDiskName="gcloudrig-games"
+$SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
+
+# Logs to GCP Serial Console
 Function Write-Status {
   Param(
     [parameter(Mandatory=$true,ValueFromPipeLine=$true)] [String] $Text,
     [String] $Sev = "INFO"
   )
-  # this goes to the serial console
   "$Sev $Text" | Write-Output
   New-GcLogEntry -Severity "$Sev" -LogName gcloudrig-install -TextPayload "$Text"
 }
@@ -21,7 +26,7 @@ function Mount-GamesDisk {
   
   $GamesDisk=(Get-GceDisk -DiskName "$GamesDiskName")
   If (-Not $GamesDisk) {
-    $LatestSnapshotName=(gcloud compute snapshots list --format "value(name)" --filter "labels.$GCRLABEL=true labels.latest=true" --project (Get-GceMetadata -Path "project/project-id"))
+    $LatestSnapshotName=(gcloud compute snapshots list --format "value(name)" --filter "labels.$GCPLabel=true labels.latest=true" --project (Get-GceMetadata -Path "project/project-id"))
     If ($LatestSnapshotName) {
       $Snapshot=(Get-GceSnapshot -Name "$LatestSnapshotName")
       If ($Snapshot) {
@@ -44,7 +49,7 @@ function Mount-GamesDisk {
       Write-Status "Attaching games disk..."
       Set-GceInstance $Instance -AddDisk $GamesDisk
       if ($GamesDiskNeedsInit) {
-        Initialize-NewDisk
+        Initialize-NewGamesDisk
       }
     }
   } Else {
@@ -52,7 +57,8 @@ function Mount-GamesDisk {
   }
 }
 
-function Initialize-NewDisk {
+# creates a new games disk
+Function Initialize-NewGamesDisk {
   try {
     Write-Status "Initializing Games Disk..."
     # stop hardware detection service to avoid a pop-up dialog
@@ -68,6 +74,7 @@ function Initialize-NewDisk {
   }
 }
 
+# updates the gcloudrig powershell module (gcloudrig.psm1)
 Function Update-GcloudRigModule {
   if (Get-GceMetadata -Path "project/attributes" | Select-String $SetupScriptUrlAttribute) {
     $SetupScriptUrl=(Get-GceMetadata -Path project/attributes/$SetupScriptUrlAttribute)
@@ -80,20 +87,14 @@ Function Update-GcloudRigModule {
   }
 }
 
-
-## Main
-Write-Status -Sev DEBUG "gcloudrig-boot.ps1 started"
-
-# these need to match globals.sh
-$GCRLABEL="gcloudrig"
-$GamesDiskName="gcloudrig-games"
-$SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
-
+# main
 Update-GcloudRigModule 
+
 if (Get-Module -ListAvailable -Name gCloudRig) {
-  Import-Module gCloudRig
-  Invoke-SoftwareSetupFromBoot
+    Import-Module gCloudRig
+    Invoke-SoftwareSetupFromBoot
 }
+
 Mount-GamesDisk
 
 Write-Status -Sev DEBUG "gcloudrig-boot.ps1 finished"
