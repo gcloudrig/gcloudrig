@@ -10,7 +10,7 @@ BOOTTYPE="pd-ssd"
 
 # base image?
 IMAGEBASEFAMILY="windows-2019"
-IMAGEBASEPROJECT_ID="windows-cloud"
+IMAGEBASEPROJECT="windows-cloud"
 
 # various resource and label names
 GCRLABEL="gcloudrig" # also set in gcloudrig-startup.ps1
@@ -412,6 +412,7 @@ function gcloudrig_create_instance_template {
       --no-restart-on-failure \
       --format "value(name)" \
       --preemptible \
+      --metadata serial-port-logging-enable=true \
       --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
       --quiet || echo
 }
@@ -437,7 +438,6 @@ function gcloudrig_create_instance_group {
     --size "0" \
     --template "$templateName" \
     --zones "$ZONES" \
-    --metadata serial-port-logging-enable=true \
     --format "value(name)" \
     --quiet
 }
