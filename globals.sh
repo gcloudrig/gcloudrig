@@ -24,7 +24,7 @@ WINDOWSUSER="gcloudrig"
 
 # other globals; overrides may be ignored
 REGION=""
-PROJECT_ID_ID=""
+PROJECT_ID=""
 ZONES=""
 GCSBUCKET=""
 
