@@ -45,7 +45,7 @@ function init_gcloudrig {
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
   if [ -z "$PROJECT_ID" ]; then
-    PROJECT_ID="$(gcloud config get-value core/project_ID --quiet 2> /dev/null)"
+    PROJECT_ID="$(gcloud config get-value core/project --quiet 2> /dev/null)"
   fi
 
   if [ -z "$REGION" ]; then
@@ -53,13 +53,13 @@ function init_gcloudrig {
     
     # Cloud Shell doesn't persist configurations, so look at project_ID metadata instead
     if [ -z "$REGION" ]; then
-      REGION="$(gcloud compute project_ID-info describe --project_ID=$PROJECT_ID --format 'value(commonInstanceMetadata.items[google-compute-default-region])' --quiet 2> /dev/null)"
+      REGION="$(gcloud compute project-info describe --project=$PROJECT_ID --format 'value(commonInstanceMetadata.items[google-compute-default-region])' --quiet 2> /dev/null)"
     fi
   fi
 
-  # if we still don't have a project_ID id or region, bail and ask user to run setup
+  # if we still don't have a project id or region, bail and ask user to run setup
   if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
-    [ -z "$PROJECT_ID" ] && echo "Missing config 'core/project_ID'" >&2
+    [ -z "$PROJECT_ID" ] && echo "Missing config 'core/project'" >&2
     [ -z "$REGION" ] && echo "Missing config 'compute/region'" >&2
     echo "Please run './setup.sh'" >&2
     exit 1
@@ -166,7 +166,7 @@ function gcloudrig_config_setup {
   fi
 
   # check if default project_ID is set, if not select/create one
-  PROJECT_ID="$(gcloud config get-value project_ID 2>/dev/null)"
+  PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
   if [ -z "$PROJECT_ID" ] ; then
     declare -A PROJECTS
     for line in $(gcloud projects list --format="csv[no-heading](name,project_id)") ; do
