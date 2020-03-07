@@ -595,9 +595,9 @@ Function Set-DisplayScaling {
   $REG = "HKCU:\Control Panel\Desktop"
 
   if($DPI -eq 96) {
-     Set-ItemProperty -Path $REG -Name Win8DpiScaling 0
+     Set-ItemProperty -Path $REG -Name Win8DpiScaling -Value 0
   } else {
-     Set-ItemProperty -Path $REG -Name Win8DpiScaling 1
+     Set-ItemProperty -Path $REG -Name Win8DpiScaling -Value 1
   }
   Set-ItemProperty -Path $REG -Name LogPixels -Value $DPI
 }
