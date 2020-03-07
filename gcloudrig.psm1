@@ -590,7 +590,7 @@ Function Set-GcloudrigDisplayResolution {
 
 Function Set-DisplayScaling {
   Param (
-    [parameter(Mandatory=$true) [String] $DPI
+    [parameter(Mandatory=$true)] [String] $DPI
   )
   $REG = "HKCU:\Control Panel\Desktop"
 
