@@ -391,9 +391,10 @@ function gcloudrig_get_accelerator_zones {
 function gcloudrig_create_instance_template {
   local templateName="$1" # required
   local imageFlags
-
-  if [ "$templateName" == "$SETUPTEMPLATE" ] ; then
-    # set up for initial boot
+  local bootImage=$(gcloudrig_get_bootimage)
+  
+  # if the templateName is SETUPTEMPLATE or we still don't have a custom boot image, assume we're in setup
+  if [ "$templateName" == "$SETUPTEMPLATE" ] || [ -z "$bootImage" ]; then
     imageFlags="--image-family $IMAGEBASEFAMILY --image-project $IMAGEBASEPROJECT"
   else
     imageFlags="--image $(gcloudrig_get_bootimage)"
