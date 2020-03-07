@@ -712,6 +712,7 @@ function gcloudrig_boot_disk_to_image {
     --source-disk-zone "$ZONE" \
     --guest-os-features "WINDOWS" \
     --family "$IMAGEFAMILY" \
+    --storage-location "$REGION" \
     --labels "$GCRLABEL=true" \
     --quiet
 
