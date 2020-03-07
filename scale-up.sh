@@ -16,4 +16,4 @@ init_gcloudrig;
 gcloudrig_start
 
 # mount games disk
-gcloudrig_mount_games_disk
+# gcloudrig_mount_games_disk
