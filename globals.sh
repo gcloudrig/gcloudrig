@@ -609,7 +609,7 @@ function gcloudrig_update_powershell_module {
 
 function wait_until_instance_group_is_stable {
   set +e
-  timeout 120s gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
+  timeout 120s gcloud compute instance-groups managed wait-until --stable "$INSTANCEGROUP" \
   	--region "$REGION" \
     --quiet
 
