@@ -444,6 +444,7 @@ function gcloudrig_create_instance_template {
       --scopes "default,compute-rw" \
       --boot-disk-auto-delete \
       --no-restart-on-failure \
+      $preemptible \
       --format "value(name)" \
       $PREEMPTIBLE_FLAG \
       --metadata serial-port-logging-enable=true \
