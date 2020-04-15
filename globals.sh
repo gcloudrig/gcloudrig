@@ -9,7 +9,7 @@ INSTANCETYPE="n1-standard-8"
 BOOTTYPE="pd-ssd"
 
 # base image?
-IMAGEBASEFAMILY="windows-2016"
+IMAGEBASEFAMILY="windows-2019"
 IMAGEBASEPROJECT="windows-cloud"
 
 # various resource and label names
@@ -391,9 +391,28 @@ function gcloudrig_get_accelerator_zones {
 function gcloudrig_create_instance_template {
   local templateName="$1" # required
   local imageFlags
+  local bootImage=$(gcloudrig_get_bootimage)
+  local preemptible=""
 
-  if [ "$templateName" == "$SETUPTEMPLATE" ] ; then
-    # set up for initial boot
+  echo "Preemptible instances are cheaper to run, but only last 24hrs and can be restarted at any time."
+  echo "For more info see https://cloud.google.com/compute/docs/instances/preemptible" 
+  while read -n 1 -p "Do you want to use preemptible instances? (y/n) " ; do
+    case $REPLY in
+      y|Y)
+        echo
+        preemptible="--preemptible"
+        break
+        ;;
+      n|N)
+        echo
+        preemptible=""
+        break
+        ;;
+    esac
+  done
+
+  # if the templateName is SETUPTEMPLATE or we still don't have a custom boot image, assume we're in setup
+  if [ "$templateName" == "$SETUPTEMPLATE" ] || [ -z "$bootImage" ]; then
     imageFlags="--image-family $IMAGEBASEFAMILY --image-project $IMAGEBASEPROJECT"
   else
     imageFlags="--image $(gcloudrig_get_bootimage)"
@@ -408,9 +427,12 @@ function gcloudrig_create_instance_template {
       --machine-type "$INSTANCETYPE" \
       --maintenance-policy "TERMINATE" \
       --scopes "default,compute-rw" \
+      --enable-display-device \
       --no-boot-disk-auto-delete \
       --no-restart-on-failure \
+      $preemptible \
       --format "value(name)" \
+      --metadata serial-port-logging-enable=true \
       --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
       --quiet || echo
 }
@@ -606,7 +628,7 @@ function gcloudrig_update_powershell_module {
 
 function wait_until_instance_group_is_stable {
   set +e
-  timeout 120s gcloud compute instance-groups managed wait-until-stable "$INSTANCEGROUP" \
+  timeout 120s gcloud compute instance-groups managed wait-until --stable "$INSTANCEGROUP" \
   	--region "$REGION" \
     --quiet
 
@@ -689,6 +711,7 @@ function gcloudrig_boot_disk_to_image {
     --source-disk-zone "$ZONE" \
     --guest-os-features "WINDOWS" \
     --family "$IMAGEFAMILY" \
+    --storage-location "$REGION" \
     --labels "$GCRLABEL=true" \
     --quiet
 
