@@ -195,9 +195,9 @@ function gcloudrig_config_setup {
     else
       echo
       echo "Select project to use:"
-      select project in ${!PROJECTS[@]} "new project" ; do
+      select project in ${!PROJECTS[@]} "(new project)" ; do
         if [ -n "$project" ] ; then
-          if [ "$project" == "new project" ] ; then
+          if [ "$project" == "(new project)" ] ; then
             # user requested to use a new project
             PROJECT_ID="gcloudrig-${RANDOM}${RANDOM}"
             gcloud_projects_create "$PROJECT_ID"
@@ -525,7 +525,7 @@ function gcloudrig_delete_instance_group {
 
 function gcloudrig_get_project_quota_limits {
   declare -gA QUOTAS
-  for line in $(gcloud compute project-info describe \
+  IFS=$'\n'; for line in $(gcloud compute project-info describe \
     --project="$PROJECT_ID" \
     --flatten="quotas[]" \
     --format="csv[no-heading](quotas.metric,quotas.limit)") ; do
