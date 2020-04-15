@@ -1,0 +1,42 @@
+{
+  "name": "gcloudrig",
+  "version": "0.0.1",
+  "description": "Scripts to manage cloud gaming on Google Compute Engine.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/putty182/gcloudrig.git"
+  },
+  "keywords": [
+    "zerotier",
+    "parsec",
+    "google-compute-engine",
+    "gce",
+    "gaming",
+    "cloud-gaming"
+  ],
+  "author": "putty182",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/putty182/gcloudrig/issues"
+  },
+  "homepage": "https://github.com/putty182/gcloudrig#readme",
+  "dependencies": {
+    "@google-cloud/compute": "^1.2.0",
+    "bluebird": "^3.7.2",
+    "chalk": "^4.0.0",
+    "commander": "^5.0.0",
+    "debug": "^4.1.1",
+    "googleapis": "^48.0.0",
+    "inquirer": "^7.1.0",
+    "lodash": "^4.17.15",
+    "module-alias": "^2.2.2"
+  },
+  "_moduleAliases": {
+    "@lib": "app/lib",
+    "@actions": "app/actions"
+  }
+}
