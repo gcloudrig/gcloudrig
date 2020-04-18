@@ -1,0 +1,11 @@
+include layout
+
+block layout-scripts
+  script(src='js/main.js')
+
+block layout-content
+  body
+    div#content
+      h1 hello world
+      button#google-auth(style="display: none") Authorize
+    script(src="https://apis.google.com/js/api.js?onload=gapiReady" async defer)

@@ -23,11 +23,36 @@
   },
   "homepage": "https://github.com/putty182/gcloudrig#readme",
   "dependencies": {
-    "auto-install": "^1.7.4"
+    "browser-sync": "^2.26.7",
+    "commander": "^5.0.0",
+    "debug": "^4.1.1",
+    "express": "^4.17.1",
+    "gulp-clean": "^0.4.0",
+    "gulp-pug": "^4.0.1",
+    "gulp-terser": "^1.2.0",
+    "jquery": "^3.5.0",
+    "lodash": "^4.17.15",
+    "module-alias": "^2.2.2",
+    "pug": "^2.0.4",
+    "terser": "^4.6.11",
+    "through2": "^3.0.1",
+    "watchify": "^3.11.1"
   },
   "_moduleAliases": {
+    "@root": ".",
     "@lib": "app/lib",
     "@actions": "app/actions"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/gapi": "0.0.39",
+    "browserify": "^16.5.1",
+    "gulp": "^4.0.2",
+    "gulp-gh-pages": "^0.5.4",
+    "gulp-noop": "^1.0.0",
+    "gulp-sourcemaps": "^2.6.5",
+    "gulp-uglify": "^3.0.2",
+    "gulplog": "^1.0.0",
+    "vinyl-buffer": "^1.0.1",
+    "vinyl-source-stream": "^2.0.0"
+  }
 }
