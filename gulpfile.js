@@ -111,6 +111,17 @@ function serve() {
     _bs.init({
       server: {
         baseDir: `${paths.dist}`
+      },
+      host: "localhost",
+      port: 3000,
+      ui: { port: 3001 },
+      open: false,
+      callbacks: {
+        ready: function(err, bs) {
+          if (process.env.DEVSHELL_SERVER_URL) {
+            console.log(`[cloudshell] HTTPS frontend also available at: ${process.env.DEVSHELL_SERVER_URL}/devshell/proxy?port=3000`)
+          }
+        }
       }
     })
   })

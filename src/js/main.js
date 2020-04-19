@@ -2,38 +2,61 @@
 // const { start } = require('./googleapi')
 // window.gapi_onload = start
 const $ = require('jquery');
+const googleapi = require('./googleapi')
 
-const { gapiReady, signin, signout, authInstance } = require('./googleapi')
+const $signin = $('#google-signin')
+const $signout = $('#google-signout')
+const $projects = $('select#gcp-projects')
+const $services = $('ul#gcp-services')
 
-window.gapiReady = gapiReady
+window.$ = window.jQuery = $;
 
-
-function updateSigninStatus() {
-  if (isSignedIn) {
-  } else {
-  }
+async function updateServicesList() {
+  $services.empty();
+  const currentProjectId = $projects.val();
+  const services = await googleapi.listServices(currentProjectId);
+  services.forEach(service => {
+    const $li = $('<li>')
+    $li.text(service.serviceName)
+    $services.append($li)
+  })
 }
 
+async function updateProjectsList () {
+  $projects.empty()
+  const projects = await googleapi.listProjects();
+  projects.forEach(project => {
+    const $option = $('<option>')
+    $option.text(`${project.name} [${project.projectId}]`)
+    $option.data(project)
+    $option.val(project.projectId)
+    $projects.append($option)
+  });
+  $projects.removeAttr('disabled').trigger('change')
+}
 
-async function main() {
-  const $btn_signin = $('#google-signin');
-  const $btn_signout = $('#google-signout');
-
-  $btn_signin.click(signin).hide();
-  $btn_signout.click(signout).hide();
-
-  await gapiReady()
-
-  authInstance().isSignedIn.listen(() => {
+function main() {
+  googleapi.events.on('isSignedIn', function (isSignedIn) {
     if (isSignedIn) {
-      $btn_signin.hide()
-      $btn_signout.show()
+      $signin.attr('disabled', true).hide()
+      $signout.removeAttr('disabled').show()
     } else {
-      $btn_signin.show()
-      $btn_signout.hide()
+      $signin.removeAttr('disabled').show()
+      $signout.attr('disabled', true).hide()
     }
   })
 
+  // bind elems
+  $signin.on('click', googleapi.signIn)
+  $signout.on('click', googleapi.signOut)
+  $projects.on('change', updateServicesList)
+
+  // initialise (async)
+  googleapi.init()
+
+  // render projects on every signin
+  googleapi.events.on('isSignedIn', updateProjectsList)
+
 }
 
-$(document).ready(main);
+main()

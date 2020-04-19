@@ -4,18 +4,15 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "gcloudrig setup",
-            "program": "${workspaceFolder}/cli.js",
-            "env": {
-                "NODE_ENV": "development"
-            },
+            "name": "Gulp develop",
+            "program": "${workspaceFolder}/node_modules/gulp/bin/gulp.js",
             "args": [
-                "serve"
+                "develop"
             ],
-            "console": "integratedTerminal",
             "skipFiles": [
                 "<node_internals>/**"
-            ]
+            ],
+            "console": "integratedTerminal"
         }
     ]
 }

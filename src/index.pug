@@ -1,11 +1,26 @@
 include layout
 
 block layout-scripts
-  script(src='js/main.js')
 
 block layout-content
   body
     div#content
       h1 hello world
-      button#google-auth(style="display: none") Authorize
-    script(src="https://apis.google.com/js/api.js?onload=gapiReady" async defer)
+      h2 authentication
+      ul
+        li
+          button#google-signin(disabled) Sign In
+          button#google-signout(disabled style="display: none") Sign Out
+          button#google-revoke(disabled style="display: none") Revoke
+      h2 project selection
+      p if there's no appropriate project listed, go make one!
+      ul
+        li
+          select#gcp-projects(disabled)
+            option(disabled selected) select a project...
+      h2 enabled services
+      ul#gcp-services
+
+
+    script(src='js/main.js')
+    script(src="https://apis.google.com/js/api.js" async defer)
