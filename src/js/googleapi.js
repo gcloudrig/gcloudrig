@@ -55,23 +55,28 @@ exports.signOut = async function() {
 
 exports.listProjects = async function() {
   let projects = []
-  let response = {}
+  let response, nextPageToken;
   do {
-    response = await gapi.client.cloudresourcemanager.projects.list()
+    response = await gapi.client.cloudresourcemanager.projects.list({
+      pageToken: nextPageToken
+    })
+    nextPageToken = response.result.nextPageToken;
     projects = projects.concat(response.result.projects)
-  } while (response.result.nextPageToken);
+  } while (nextPageToken)
   return projects;
 }
 
 exports.listServices = async function(projectId) {
   let services = []
-  let response = {}
+  let response, nextPageToken;
   do {
     response = await gapi.client.servicemanagement.services.list({
-      consumerId: `project:${projectId}`      
+      consumerId: `project:${projectId}`,
+      pageToken: nextPageToken
     })
+    nextPageToken = response.result.nextPageToken;
     services = services.concat(response.result.services)
-  } while (response.result.nextPageToken);
+  } while (nextPageToken)
   return services;
 }
 
