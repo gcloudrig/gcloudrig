@@ -1,3 +1,4 @@
+
 To setup a new rig:
 $ ./setup.sh
 
