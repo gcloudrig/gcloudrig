@@ -7,6 +7,7 @@ ACCELERATORCOUNT="1"
 # instance and boot disk type?
 INSTANCETYPE="n1-standard-8"
 BOOTTYPE="pd-ssd"
+PREEMPTIBLE_FLAG="--preemptible"
 
 # base image?
 IMAGEBASEFAMILY="windows-2019"
@@ -430,7 +431,7 @@ function gcloudrig_create_instance_template {
       --boot-disk-auto-delete \
       --no-restart-on-failure \
       --format "value(name)" \
-      --preemptible \
+      $PREEMPTIBLE_FLAG \
       --metadata serial-port-logging-enable=true \
       --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
       --quiet || echo
