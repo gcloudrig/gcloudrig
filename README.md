@@ -1,6 +1,7 @@
-# gcloudrig
+# &nbsp;<img alt="Logo" src="https://cdn.pixabay.com/photo/2016/10/30/23/05/controller-1784573_1280.png" width="50" height="50" />&nbsp;gcloudrig 
 
-A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.com/sdk/gcloud/) to create and maintain a cloud gaming instance, on the cheap.
+
+A collection of bash scripts that to create and maintain a Google Cloud Platform gaming instance, on the cheap.
 
 ### Quickstart
 
