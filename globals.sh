@@ -427,7 +427,7 @@ function gcloudrig_create_instance_template {
       --machine-type "$INSTANCETYPE" \
       --maintenance-policy "TERMINATE" \
       --scopes "default,compute-rw" \
-      --no-boot-disk-auto-delete \
+      --boot-disk-auto-delete \
       --no-restart-on-failure \
       --format "value(name)" \
       --preemptible \
@@ -688,6 +688,11 @@ function gcloudrig_start {
 # scale to 0 and wait
 function gcloudrig_stop {
   echo "Stopping gcloudrig..."
+
+  gcloud compute instances set-disk-auto-delete "$INSTANCE" \
+    --zone "$ZONE" \
+    --disk "$BOOTDISK" \
+    --no-auto-delete
 
   gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
     --size "0" \
