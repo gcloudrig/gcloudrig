@@ -4,7 +4,7 @@ A collection of bash scripts that use [Google's Cloud SDK](https://cloud.google.
 
 ### Quickstart
 
-[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/compute/instances?cloudshell_git_repo=https://github.com/putty182/gcloudrig&cloudshell_print=quickstart.md)
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/compute/instances?cloudshell_git_repo=https://github.com/putty182/gcloudrig&cloudshell_print=QUICKSTART.md)
 
 Note: you will require a Google Cloud project with an active billing account to launch your rig.
 
