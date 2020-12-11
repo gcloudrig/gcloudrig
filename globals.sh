@@ -41,6 +41,7 @@ SETUPOPTIONS[InstallSSH]="false"
 ########
 # INIT #
 ########
+IFS=$'\n'
 
 function init_gcloudrig {
 
