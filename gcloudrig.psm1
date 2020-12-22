@@ -688,31 +688,33 @@ Function Install-NvidiaDrivers {
   # see https://cloud.google.com/compute/docs/gpus/add-gpus#install-driver-manual
 
   $currentVersion = Get-Package | Where-Object { $_.Name -like "NVIDIA Graphics Driver*" } | %{ $_.Version }
+
   If (!$currentVersion) {
     # assume this is a fresh install
     $currentVersion=0
   }
 
   # Query GCS for the latest nVidia GRID driver
-  # download if newer than current install
-  $gcsObjects = @(Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" | Where-Object { $_.Name -like "*_grid_*_server2019_*.exe" })
+  $gcsObjects = Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" |
+    Where { $_.Name -like "*_grid_*_server2019_*.exe" }
+  $gridVersions = @()
+  foreach ($gcsObject in $gcsObjects) { $gridVersions += $gcsObject.Name.Split("/")[2].Split("_")[0] } 
+  $gridVersions = $gridVersions | Sort
 
-  ForEach-Object -InputObject $gcsObjects { 
-    $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
-    If ( $thisVersion -gt $currentVersion ) {
-      $newVersion = $thisVersion
-      $newVersionGcsObject = $_
-    }
-  }
+  # Found the latest version
+  $latestVersion = $gridVersions[-1]
+  $latestVersionGcsObject = Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" |
+    Where { $_.Name -like "*/$($latestVersion)_grid_*_server2019_*.exe" } | 
+    Select-Object -First 1
 
-  If ( $newVersion -gt $currentVersion ) {
-    $nvidiaDir = Join-Path $downloadDir "nvidia-$newVersion"
+  If ( $latestVersion -gt $currentVersion ) {
+    $nvidiaDir = Join-Path $downloadDir "nvidia-$latestVersion"
     $nvidiaSetup = Join-Path $nvidiaDir "setup.exe"
-    $outFile = Join-Path $downloadDir "nvidia-$newVersion.exe"
+    $outFile = Join-Path $downloadDir "nvidia-$latestVersion.exe"
 
-    Write-Status "Install-NvidiaDrivers: want to install $newVersion (upgrade from: $currentVersion)"
+    Write-Status "Install-NvidiaDrivers: want to install $latestVersion (upgrade from: $currentVersion)"
     Write-Status -Sev DEBUG ("Install-NvidiaDrivers: download {0}" -f $_.Name)
-    Read-GcsObject -InputObject $newVersionGcsObject -OutFile $outFile -Force
+    Read-GcsObject -InputObject $latestVersionGcsObject -OutFile $outFile -Force
     # TODO check exit code
     # if download succeeded, install
     If ((Test-Path $outFile) -And (Get-Item $outFile).length -gt 0) {
@@ -725,7 +727,7 @@ Function Install-NvidiaDrivers {
     }
   }
 
-  Write-Status "Install-NvidiaDrivers: current: $currentVersion >= latest: $newVersion"
+  Write-Status "Install-NvidiaDrivers: current: $currentVersion >= latest: $latestVersion"
 }
 
 Function Set-1610VideoModes {
