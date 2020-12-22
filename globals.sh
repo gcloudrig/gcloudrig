@@ -189,8 +189,9 @@ function gcloudrig_config_setup {
   # check if default project_ID is set, if not select/create one
   PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
   if [ -z "$PROJECT_ID" ] ; then
+    OLDIFS=$IFS; IFS=$'\n';
     declare -A PROJECTS
-      IFS=$'\n'; for line in $(gcloud projects list --format="csv[no-heading](name,project_id)"); do
+    for line in $(gcloud projects list --format="csv[no-heading](name,project_id)"); do
       PROJECTS[${line%%,*}]="${line##*,}"
     done;
     if [ "${#PROJECTS[@]}" -eq 0 ] ; then
@@ -214,6 +215,7 @@ function gcloudrig_config_setup {
         fi
       done
     fi
+    IFS=$OLDIFS
   fi
 
   # this is required before we can check for regions with GPUs
@@ -547,12 +549,14 @@ function gcloudrig_delete_instance_group {
 
 function gcloudrig_get_project_quota_limits {
   declare -gA QUOTAS
-  IFS=$'\n'; for line in $(gcloud compute project-info describe \
+  OLDIFS=$IFS; IFS=$'\n';
+  for line in $(gcloud compute project-info describe \
     --project="$PROJECT_ID" \
     --flatten="quotas[]" \
     --format="csv[no-heading](quotas.metric,quotas.limit)") ; do
     QUOTAS[${line%%,*}]="${line##*,}"
   done
+  IFS=$OLDIFS
 }
 
 function gcloudrig_check_quota_gpus_all_regions {

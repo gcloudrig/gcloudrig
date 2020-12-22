@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-# exit on error
-set -e
 [ -n "$GCLOUDRIG_DEBUG" ] && set -x
 
 # full path to script dir
