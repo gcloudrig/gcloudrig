@@ -38,6 +38,8 @@ SETUPOPTIONS[DisplayScaling]=""
 SETUPOPTIONS[InstallSteam]="false"
 SETUPOPTIONS[InstallBattlenet]="false"
 SETUPOPTIONS[InstallSSH]="false"
+SETUPOPTIONS[InstallGoogleChrome]="false"
+SETUPOPTIONS[InstallFirefox]="false"
 
 ########
 # INIT #
