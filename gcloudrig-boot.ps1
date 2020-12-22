@@ -5,7 +5,7 @@
 $GcloudrigPrefix="gcloudrig-dev"
 $GCPLabel="$($GcloudrigPrefix)"
 $GamesDiskName="$($GcloudrigPrefix)-games"
-$SetupScriptUrlAttribute="$($GcloudrigPrefix)-setup-script-gcs-url"
+$SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
 
 # Logs to GCP Serial Console
 Function Write-Status {
