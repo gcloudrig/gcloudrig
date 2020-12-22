@@ -619,7 +619,11 @@ function gcloudrig_create_gcs_bucket {
   set -e
 
   # announce script's gcs url via project metadata
+<<<<<<< Updated upstream
   gcloud compute project-info add-metadata --metadata "$SETUPSCRIPT_ATTRIB=$GCSBUCKET/gcloudrig.psm1" --quiet
+=======
+  gcloud compute project-info add-metadata --metadata "$SETUPSCRIPTATTRIBUTE=$GCSBUCKET/gcloudrig.psm1" --quiet
+>>>>>>> Stashed changes
 }
 
 function gcloudrig_update_powershell_module {
