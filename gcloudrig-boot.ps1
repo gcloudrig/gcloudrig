@@ -1,10 +1,11 @@
 # gcloudrig-boot.ps1
 #
 
-# these need to match globals.sh
+# these all need to match globals.sh
 $GcloudrigPrefix="gcloudrig-dev"
 $GCPLabel="$($GcloudrigPrefix)"
 $GamesDiskName="$($GcloudrigPrefix)-games"
+
 $SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
 
 # Logs to GCP Serial Console

@@ -21,7 +21,6 @@ INSTANCEGROUP="${GCLOUDRIG_PREFIX}-group"
 INSTANCENAME="${GCLOUDRIG_PREFIX}"
 SETUPTEMPLATE="${GCLOUDRIG_PREFIX}-setup-template"
 CONFIGURATION="${GCLOUDRIG_PREFIX}"
-SETUPSCRIPT_ATTRIB="${GCLOUDRIG_PREFIX}-setup-script-gcs-url"
 WINDOWSUSER="gcloudrig"
 
 # other globals; overrides may be ignored
@@ -659,7 +658,7 @@ function gcloudrig_create_gcs_bucket {
   set -e
 
   # announce script's gcs url via project metadata
-  gcloud compute project-info add-metadata --metadata "$SETUPSCRIPT_ATTRIB=$GCSBUCKET/gcloudrig.psm1" --quiet
+  gcloud compute project-info add-metadata --metadata "gcloudrig-setup-script-gcs-url=$GCSBUCKET/gcloudrig.psm1" --quiet
 }
 
 function gcloudrig_update_powershell_module {
