@@ -391,7 +391,7 @@ function gcloudrig_get_bootdisk_from_instance {
 function gcloudrig_get_bootimage {
   gcloud compute images list \
     --format "value(name)" \
-    --filter "labels.gcloudrig=true labels.latest=true"
+    --filter "labels.$GCRLABEL=true labels.latest=true"
 }
 
 # Get zones with accelerators in region $1
@@ -479,7 +479,7 @@ function gcloudrig_update_instance_group {
   local templates=()
   mapfile -t templates < <(gcloud compute instance-templates list \
     --format "value(name)" \
-    --filter "properties.labels.gcloudrig=true")
+    --filter "properties.labels.$GCRLABEL=true")
   for template in "${templates[@]}"; do
     if ! [ "$newtemplate" == "$template" ]; then
       gcloud compute instance-templates delete "$template" --format "value(name)" --quiet || echo -n
@@ -499,7 +499,7 @@ function gcloudrig_delete_instance_group {
   local templates=()
   mapfile -t templates < <(gcloud compute instance-templates list \
     --format "value(name)" \
-    --filter "properties.labels.gcloudrig=true")
+    --filter "properties.labels.$GCRLABEL=true")
   for template in "${templates[@]}"; do
     gcloud compute instance-templates delete "$template" --quiet || echo -n
   done
@@ -826,7 +826,7 @@ function gcloudrig_mount_games_disk {
   # get latest games snapshot
   snapshot="$(gcloud compute snapshots list \
     --format "value(name)" \
-    --filter "labels.gcloudrig=true labels.latest=true")"
+    --filter "labels.$GCRLABEL=true labels.latest=true")"
 
   existingdisk="$(gcloud compute disks list \
     --filter "name=$GAMESDISK zone:($ZONE)" \
