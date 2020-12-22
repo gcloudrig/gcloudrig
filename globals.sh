@@ -7,7 +7,6 @@ ACCELERATORCOUNT="1"
 # instance and boot disk type?
 INSTANCETYPE="n1-standard-8"
 BOOTTYPE="pd-ssd"
-PREEMPTIBLE_FLAG="--preemptible"
 
 # base image?
 IMAGEBASEFAMILY="windows-2019"
@@ -59,6 +58,15 @@ function init_gcloudrig {
     # Cloud Shell doesn't persist configurations, so look at project_ID metadata instead
     if [ -z "$REGION" ]; then
       REGION="$(gcloud compute project-info describe --project=$PROJECT_ID --format 'value(commonInstanceMetadata.items[google-compute-default-region])' --quiet 2> /dev/null)"
+    fi
+  fi
+
+  # if we don't have a project id or region yet
+  if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
+    # check if we're running in cloudshell, since it likes to eat gcloud configs
+    GCE_ATTRIBUTE_BASE_SERVER_URL="$(curl -H "Metadata-Flavor: Google" metadata/computeMetadata/v1/instance/attributes/base-server-url)"
+    if [ $GCE_ATTRIBUTE_BASE_SERVER_URL == "https://ssh.cloud.google.com" ]; then
+      gcloudrig_config_setup
     fi
   fi
 
@@ -183,11 +191,9 @@ function gcloudrig_config_setup {
   PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
   if [ -z "$PROJECT_ID" ] ; then
     declare -A PROJECTS
-    OLD_IFS=$IFS IFS=$'\n'
-    for line in $(gcloud projects list --format="csv[no-heading](name,project_id)") ; do
-      PROJECTS[${line%%,*}]=${line##*,} 
-    done
-    IFS=$OLD_IFS
+      IFS=$'\n'; for line in $(gcloud projects list --format="csv[no-heading](name,project_id)"); do
+      PROJECTS[${line%%,*}]="${line##*,}"
+    done;
     if [ "${#PROJECTS[@]}" -eq 0 ] ; then
       # no existing projects, create one
       PROJECT_ID="gcloudrig-${RANDOM}${RANDOM}"
@@ -425,7 +431,25 @@ function gcloudrig_create_instance_template {
   local templateName="$1" # required
   local imageFlags
   local bootImage=$(gcloudrig_get_bootimage)
-  
+  local preemptible=""
+
+  echo "Preemptible instances are cheaper to run, but only last 24hrs and can be restarted at any time."
+  echo "For more info see https://cloud.google.com/compute/docs/instances/preemptible" 
+  while read -n 1 -p "Do you want to use preemptible instances? (y/n) " ; do
+    case $REPLY in
+      y|Y)
+        echo
+        preemptible="--preemptible"
+        break
+        ;;
+      n|N)
+        echo
+        preemptible=""
+        break
+        ;;
+    esac
+  done
+
   # if the templateName is SETUPTEMPLATE or we still don't have a custom boot image, assume we're in setup
   if [ "$templateName" == "$SETUPTEMPLATE" ] || [ -z "$bootImage" ]; then
     imageFlags="--image-family $IMAGEBASEFAMILY --image-project $IMAGEBASEPROJECT"
@@ -446,7 +470,6 @@ function gcloudrig_create_instance_template {
       --no-restart-on-failure \
       $preemptible \
       --format "value(name)" \
-      $PREEMPTIBLE_FLAG \
       --metadata serial-port-logging-enable=true \
       --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
       --quiet || echo
@@ -636,11 +659,7 @@ function gcloudrig_create_gcs_bucket {
   set -e
 
   # announce script's gcs url via project metadata
-<<<<<<< Updated upstream
   gcloud compute project-info add-metadata --metadata "$SETUPSCRIPT_ATTRIB=$GCSBUCKET/gcloudrig.psm1" --quiet
-=======
-  gcloud compute project-info add-metadata --metadata "$SETUPSCRIPTATTRIBUTE=$GCSBUCKET/gcloudrig.psm1" --quiet
->>>>>>> Stashed changes
 }
 
 function gcloudrig_update_powershell_module {
