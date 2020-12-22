@@ -7,20 +7,20 @@ ACCELERATORCOUNT="1"
 # instance and boot disk type?
 INSTANCETYPE="n1-standard-8"
 BOOTTYPE="pd-ssd"
-PREEMPTIBLE_FLAG="--preemptible"
 
 # base image?
 IMAGEBASEFAMILY="windows-2019"
 IMAGEBASEPROJECT="windows-cloud"
 
 # various resource and label names
-GCRLABEL="gcloudrig" # also set in gcloudrig-startup.ps1
-GAMESDISK="gcloudrig-games" # also set in gcloudrig-startup.ps1
-IMAGEFAMILY="gcloudrig"
-INSTANCEGROUP="gcloudrig-group"
-INSTANCENAME="gcloudrig"
-SETUPTEMPLATE="gcloudrig-setup-template"
-CONFIGURATION="gcloudrig"
+GCLOUDRIG_PREFIX="gcloudrig-dev"
+GCRLABEL="${GCLOUDRIG_PREFIX}"                   # also set in gcloudrig-boot.ps1
+GAMESDISK="${GCLOUDRIG_PREFIX}-games"            # also set in gcloudrig-boot.ps1
+IMAGEFAMILY="${GCLOUDRIG_PREFIX}"
+INSTANCEGROUP="${GCLOUDRIG_PREFIX}-group"
+INSTANCENAME="${GCLOUDRIG_PREFIX}"
+SETUPTEMPLATE="${GCLOUDRIG_PREFIX}-setup-template"
+CONFIGURATION="${GCLOUDRIG_PREFIX}"
 WINDOWSUSER="gcloudrig"
 
 # other globals; overrides may be ignored
@@ -29,7 +29,6 @@ PROJECT_ID=""
 ZONES=""
 GCSBUCKET=""
 
-
 declare -A SETUPOPTIONS
 SETUPOPTIONS[ZeroTierNetwork]=""
 SETUPOPTIONS[VideoMode]="1920x1080"
@@ -37,11 +36,12 @@ SETUPOPTIONS[DisplayScaling]=""
 SETUPOPTIONS[InstallSteam]="false"
 SETUPOPTIONS[InstallBattlenet]="false"
 SETUPOPTIONS[InstallSSH]="false"
+SETUPOPTIONS[InstallGoogleChrome]="false"
+SETUPOPTIONS[InstallFirefox]="false"
 
 ########
 # INIT #
 ########
-IFS=$'\n'
 
 function init_gcloudrig {
 
@@ -57,6 +57,24 @@ function init_gcloudrig {
     # Cloud Shell doesn't persist configurations, so look at project_ID metadata instead
     if [ -z "$REGION" ]; then
       REGION="$(gcloud compute project-info describe --project=$PROJECT_ID --format 'value(commonInstanceMetadata.items[google-compute-default-region])' --quiet 2> /dev/null)"
+    fi
+  fi
+
+  # if we don't have a project id or region yet
+  if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
+    # check if we're running in cloudshell, since it likes to eat gcloud configs
+    GCE_ATTRIBUTE_BASE_SERVER_URL="$(curl -H "Metadata-Flavor: Google" metadata/computeMetadata/v1/instance/attributes/base-server-url)"
+    if [ $GCE_ATTRIBUTE_BASE_SERVER_URL == "https://ssh.cloud.google.com" ]; then
+      gcloudrig_config_setup
+    fi
+  fi
+
+  # if we don't have a project id or region yet
+  if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
+    # check if we're running in cloudshell, since it likes to eat gcloud configs
+    GCE_ATTRIBUTE_BASE_SERVER_URL="$(curl -H "Metadata-Flavor: Google" metadata/computeMetadata/v1/instance/attributes/base-server-url)"
+    if [ $GCE_ATTRIBUTE_BASE_SERVER_URL == "https://ssh.cloud.google.com" ]; then
+      gcloudrig_config_setup
     fi
   fi
 
@@ -171,10 +189,11 @@ function gcloudrig_config_setup {
   # check if default project_ID is set, if not select/create one
   PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
   if [ -z "$PROJECT_ID" ] ; then
+    OLDIFS=$IFS; IFS=$'\n';
     declare -A PROJECTS
-    for line in $(gcloud projects list --format="csv[no-heading](name,project_id)") ; do
-      PROJECTS[${line%%,*}]=${line##*,} 
-    done
+    for line in $(gcloud projects list --format="csv[no-heading](name,project_id)"); do
+      PROJECTS[${line%%,*}]="${line##*,}"
+    done;
     if [ "${#PROJECTS[@]}" -eq 0 ] ; then
       # no existing projects, create one
       PROJECT_ID="gcloudrig-${RANDOM}${RANDOM}"
@@ -182,9 +201,9 @@ function gcloudrig_config_setup {
     else
       echo
       echo "Select project to use:"
-      select project in ${!PROJECTS[@]} "new project" ; do
+      select project in ${!PROJECTS[@]} "(new project)" ; do
         if [ -n "$project" ] ; then
-          if [ "$project" == "new project" ] ; then
+          if [ "$project" == "(new project)" ] ; then
             # user requested to use a new project
             PROJECT_ID="gcloudrig-${RANDOM}${RANDOM}"
             gcloud_projects_create "$PROJECT_ID"
@@ -196,6 +215,7 @@ function gcloudrig_config_setup {
         fi
       done
     fi
+    IFS=$OLDIFS
   fi
 
   # this is required before we can check for regions with GPUs
@@ -412,7 +432,25 @@ function gcloudrig_create_instance_template {
   local templateName="$1" # required
   local imageFlags
   local bootImage=$(gcloudrig_get_bootimage)
-  
+  local preemptible=""
+
+  echo "Preemptible instances are cheaper to run, but only last 24hrs and can be restarted at any time."
+  echo "For more info see https://cloud.google.com/compute/docs/instances/preemptible" 
+  while read -n 1 -p "Do you want to use preemptible instances? (y/n) " ; do
+    case $REPLY in
+      y|Y)
+        echo
+        preemptible="--preemptible"
+        break
+        ;;
+      n|N)
+        echo
+        preemptible=""
+        break
+        ;;
+    esac
+  done
+
   # if the templateName is SETUPTEMPLATE or we still don't have a custom boot image, assume we're in setup
   if [ "$templateName" == "$SETUPTEMPLATE" ] || [ -z "$bootImage" ]; then
     imageFlags="--image-family $IMAGEBASEFAMILY --image-project $IMAGEBASEPROJECT"
@@ -431,8 +469,8 @@ function gcloudrig_create_instance_template {
       --scopes "default,compute-rw" \
       --boot-disk-auto-delete \
       --no-restart-on-failure \
+      $preemptible \
       --format "value(name)" \
-      $PREEMPTIBLE_FLAG \
       --metadata serial-port-logging-enable=true \
       --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
       --quiet || echo
@@ -511,12 +549,14 @@ function gcloudrig_delete_instance_group {
 
 function gcloudrig_get_project_quota_limits {
   declare -gA QUOTAS
+  OLDIFS=$IFS; IFS=$'\n';
   for line in $(gcloud compute project-info describe \
     --project="$PROJECT_ID" \
     --flatten="quotas[]" \
     --format="csv[no-heading](quotas.metric,quotas.limit)") ; do
     QUOTAS[${line%%,*}]="${line##*,}"
   done
+  IFS=$OLDIFS
 }
 
 function gcloudrig_check_quota_gpus_all_regions {
@@ -591,6 +631,11 @@ function gcloudrig_setup_options_to_json {
   optionString="${optionString%,}"
 
   printf "$jsonTemplate" "$optionString"
+}
+
+# TODO store the password somewhere safer
+function gcloudrig_get_password_from_logs {
+  gcloud logging read "logName=projects/$PROJECT_ID/logs/gcloudrig-install AND textPayload:password" --format="value(textPayload)" --limit=1
 }
 
 # TODO store the password somewhere safer

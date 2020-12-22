@@ -91,6 +91,7 @@ workflow Install-gCloudRig {
 
     New-GcloudrigShortcuts
   }
+}
 
   InlineScript {
     # all is complete, update setup state, remove the startup job
@@ -432,6 +433,16 @@ Function Install-SSH {
   New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShellCommandOption -Value "/c" -PropertyType String -Force
 }
 
+Function Install-GoogleChrome {
+  Write-Status "Installing Google Chrome..."
+  Install-ChocolateyPackage GoogleChrome
+}
+
+Function Install-Firefox {
+  Write-Status "Installing Firefox..."
+  Install-ChocolateyPackage Firefox
+}
+
 Function Install-Chocolatey {
   Write-Status "Install Chocolatey..."
   $env:chocolateyUseWindowsCompression = 'true'
@@ -627,6 +638,31 @@ Function Get-GcloudrigSetupOptions {
   return $SetupOptions
 }
 
+Function Set-SetupState {
+  Param([parameter(Mandatory=$true)] [String] $State)
+
+  & gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=$State" --quiet 2>&1 | Out-Null
+  Write-Status -Sev DEBUG "changed setup state to $State"
+}
+
+Function Get-SetupState {
+  $SetupStateExists=(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-state")
+  if ($SetupStateExists) {
+    $SetupState=(Get-GceMetadata -Path "project/attributes/gcloudrig-setup-state")
+  } Else {
+    $SetupState = $null
+  }
+  return $SetupState
+}
+
+Function Get-GcloudrigSetupOptions {
+  $SetupOptions = $null
+  If(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-options") {
+    $SetupOptions=Get-GceMetadata -Path "project/attributes/gcloudrig-setup-options" | ConvertFrom-JsonAsHashtable
+  }
+  return $SetupOptions
+}
+
 Function Write-Status {
   Param(
     [parameter(Mandatory=$true)] [String] $Text,
@@ -686,36 +722,42 @@ Function Install-NvidiaDrivers {
   # Query GCS for the latest nVidia GRID driver
   # download if newer than current install
   Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" |
-   Where { $_.Name -like "*_grid_*_server2019_*.exe" } |
-   Sort -Property Name -Descending |
-   ForEach-Object { 
-     $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
-     If ( $thisVersion -gt $currentVersion ) { 
-       $nvidiaDir = Join-Path $downloadDir "nvidia-$thisVersion"
-       $nvidiaSetup = Join-Path $nvidiaDir "setup.exe"
-       $outFile = Join-Path $downloadDir "nvidia-$thisVersion.exe"
+    Where { $_.Name -like "*_grid_*_server2019_*.exe" } |
+    ForEach-Object { 
+      $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
+      If ( $thisVersion -gt $currentVersion ) {
+        $newVersion = $thisVersion
+        $newVersionGcsObject = $_
+      }
+    }
 
-       Write-Status "Install-NvidiaDrivers: want to install $thisVersion (upgrade from: $currentVersion)"
-       Write-Status -Sev DEBUG ("Install-NvidiaDrivers: download {0}" -f $_.Name)
-       Read-GcsObject -InputObject $_ -OutFile $outFile -Force
-       # TODO check exit code
-       # if download succeeded, install
-       If ((Test-Path $outFile) -And (Get-Item $outFile).length -gt 0) {
-         Write-Status -Sev DEBUG "Install-NvidiaDrivers: extract $outFile"
-         & c:\gcloudrig\7zip\7z.exe x -y $outFile -o"$nvidiaDir" 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
-         Write-Status -Sev DEBUG "Install-NvidiaDrivers: run $nvidiaSetup"
-         & $nvidiaSetup -noreboot -clean -s 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
-         # TODO check exit code
-         Write-Status "Install-NvidiaDrivers: $nvidiaSetup done."
-         Break
-       } Else {
-         Write-Status -Sev ERROR "Failed to get $_"
-       }
-     } Else { 
-       Write-Status "Install-NvidiaDrivers: current: $currentVersion >= latest: $thisVersion"
-       Break
-     }
-   }
+  If ( $newVersion -gt $currentVersion ) {
+    $nvidiaDir = Join-Path $downloadDir "nvidia-$newVersion"
+    $nvidiaSetup = Join-Path $nvidiaDir "setup.exe"
+    $outFile = Join-Path $downloadDir "nvidia-$newVersion.exe"
+
+    Write-Status "Install-NvidiaDrivers: want to install $newVersion (upgrade from: $currentVersion)"
+    Write-Status -Sev DEBUG ("Install-NvidiaDrivers: download {0}" -f $_.Name)
+    Read-GcsObject -InputObject $newVersionGcsObject -OutFile $outFile -Force
+    # TODO check exit code
+    # if download succeeded, install
+    If ((Test-Path $outFile) -And (Get-Item $outFile).length -gt 0) {
+      Write-Status -Sev DEBUG "Install-NvidiaDrivers: extract $outFile"
+      & c:\gcloudrig\7zip\7z.exe x -y $outFile -o"$nvidiaDir" 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+      Write-Status -Sev DEBUG "Install-NvidiaDrivers: run $nvidiaSetup"
+      & $nvidiaSetup -noreboot -clean -s 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+      # TODO check exit code
+      Write-Status "Install-NvidiaDrivers: $nvidiaSetup done."
+    }
+  }
+
+  Write-Status "Install-NvidiaDrivers: current: $currentVersion >= latest: $newVersion"
+}
+
+Function Set-1610VideoModes {
+  # set proper video modes
+  # default: {*}S 720x480x8,16,32,64=1; 720x576x8,16,32,64=8032;SHV 1280x720x8,16,32,64 1680x1050x8,16,32,64 1920x1080x8,16,32,64 2048x1536x8,16,32,64=1; 1920x1440x8,16,32,64=1F; 640x480x8,16,32,64 800x600x8,16,32,64 1024x768x8,16,32,64=1FFF; 1920x1200x8,16,32,64=3F; 1600x900x8,16,32,64=3FF; 2560x1440x8,16,32,64 2560x1600x8,16,32,64=7B; 1600x1024x8,16,32,64 1600x1200x8,16,32,64=7F;1280x768x8,16,32,64 1280x800x8,16,32,64 1280x960x8,16,32,64 1280x1024x8,16,32,64 1360x768x8,16,32,64 1366x768x8,16,32,64=7FF; 1152x864x8,16,32,64=FFF;
+  (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Video\*\0000") | Where ProviderName -eq "NVIDIA" | ForEach { Set-ItemProperty $_.PSPath -Name "NV_Modes" -Value "{*}S 1024x640 1280x800 1440x900 1680x1050 1920x1200 2304x1440 2560x1600=1;" }
 }
 
 Function Set-1610VideoModes {

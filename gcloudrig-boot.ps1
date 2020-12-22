@@ -1,9 +1,11 @@
 # gcloudrig-boot.ps1
 #
 
-# these need to match globals.sh
-$GCPLabel="gcloudrig"
-$GamesDiskName="gcloudrig-games"
+# these all need to match globals.sh
+$GcloudrigPrefix="gcloudrig-dev"
+$GCPLabel="$($GcloudrigPrefix)"
+$GamesDiskName="$($GcloudrigPrefix)-games"
+
 $SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
 
 # Logs to GCP Serial Console
@@ -12,6 +14,7 @@ Function Write-Status {
     [parameter(Mandatory=$true,ValueFromPipeLine=$true)] [String] $Text,
     [String] $Sev = "INFO"
   )
+  # this goes to the serial console
   "$Sev $Text" | Write-Output
   New-GcLogEntry -Severity "$Sev" -LogName gcloudrig-install -TextPayload "$Text"
 }
