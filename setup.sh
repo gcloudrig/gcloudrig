@@ -32,4 +32,4 @@ done
 gcloudrig_delete_instance_group
 gcloudrig_create_instance_group
 
-echo "Done!  Run './scale-up.sh' to start your instance."
+echo "Done!  Run './scale-up.sh' to start your instance.  If this is it's first launch, installations may take ~20mins to finish."
