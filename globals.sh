@@ -14,13 +14,15 @@ IMAGEBASEFAMILY="windows-2019"
 IMAGEBASEPROJECT="windows-cloud"
 
 # various resource and label names
-GCRLABEL="gcloudrig" # also set in gcloudrig-startup.ps1
-GAMESDISK="gcloudrig-games" # also set in gcloudrig-startup.ps1
-IMAGEFAMILY="gcloudrig"
-INSTANCEGROUP="gcloudrig-group"
-INSTANCENAME="gcloudrig"
-SETUPTEMPLATE="gcloudrig-setup-template"
-CONFIGURATION="gcloudrig"
+RESOURCE_PREFIX="gcloudrig-dev"
+GCRLABEL="${RESOURCE_PREFIX}"                   # also set in gcloudrig-boot.ps1
+GAMESDISK="${RESOURCE_PREFIX}-games"            # also set in gcloudrig-boot.ps1
+IMAGEFAMILY="${RESOURCE_PREFIX}"
+INSTANCEGROUP="${RESOURCE_PREFIX}-group"
+INSTANCENAME="${RESOURCE_PREFIX}"
+SETUPTEMPLATE="${RESOURCE_PREFIX}-setup-template"
+CONFIGURATION="${RESOURCE_PREFIX}"
+SETUPSCRIPTATTRIBUTE="${RESOURCE_PREFIX}-setup-script-gcs-url"
 WINDOWSUSER="gcloudrig"
 
 # other globals; overrides may be ignored
@@ -28,7 +30,6 @@ REGION=""
 PROJECT_ID=""
 ZONES=""
 GCSBUCKET=""
-
 
 declare -A SETUPOPTIONS
 SETUPOPTIONS[ZeroTierNetwork]=""
@@ -41,7 +42,6 @@ SETUPOPTIONS[InstallSSH]="false"
 ########
 # INIT #
 ########
-IFS=$'\n'
 
 function init_gcloudrig {
 
@@ -172,9 +172,11 @@ function gcloudrig_config_setup {
   PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
   if [ -z "$PROJECT_ID" ] ; then
     declare -A PROJECTS
+    OLD_IFS=$IFS IFS=$'\n'
     for line in $(gcloud projects list --format="csv[no-heading](name,project_id)") ; do
       PROJECTS[${line%%,*}]=${line##*,} 
     done
+    IFS=$OLD_IFS
     if [ "${#PROJECTS[@]}" -eq 0 ] ; then
       # no existing projects, create one
       PROJECT_ID="gcloudrig-${RANDOM}${RANDOM}"
@@ -617,7 +619,7 @@ function gcloudrig_create_gcs_bucket {
   set -e
 
   # announce script's gcs url via project metadata
-  gcloud compute project-info add-metadata --metadata "gcloudrig-setup-script-gcs-url=$GCSBUCKET/gcloudrig.psm1" --quiet
+  gcloud compute project-info add-metadata --metadata "$SETUPSCRIPTATTRIBUTE=$GCSBUCKET/gcloudrig.psm1" --quiet
 }
 
 function gcloudrig_update_powershell_module {

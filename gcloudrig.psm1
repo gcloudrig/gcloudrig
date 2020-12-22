@@ -432,6 +432,16 @@ Function Install-SSH {
   New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShellCommandOption -Value "/c" -PropertyType String -Force
 }
 
+Function Install-GoogleChrome {
+  Write-Status "Installing Google Chrome..."
+  Install-ChocolateyPackage GoogleChrome
+}
+
+Function Install-Firefox {
+  Write-Status "Installing Firefox..."
+  Install-ChocolateyPackage Firefox
+}
+
 Function Install-Chocolatey {
   Write-Status "Install Chocolatey..."
   $env:chocolateyUseWindowsCompression = 'true'

@@ -2,9 +2,9 @@
 #
 
 # these need to match globals.sh
-$GCPLabel="gcloudrig"
-$GamesDiskName="gcloudrig-games"
-$SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
+$GCPLabel="gcloudrig-dev"
+$GamesDiskName="gcloudrig-dev-games"
+$SetupScriptUrlAttribute="gcloudrig-dev-setup-script-gcs-url"
 
 # Logs to GCP Serial Console
 Function Write-Status {
