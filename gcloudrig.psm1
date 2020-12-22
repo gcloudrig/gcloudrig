@@ -696,36 +696,36 @@ Function Install-NvidiaDrivers {
   # Query GCS for the latest nVidia GRID driver
   # download if newer than current install
   Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" |
-   Where { $_.Name -like "*_grid_*_server2019_*.exe" } |
-   Sort -Property Name -Descending |
-   ForEach-Object { 
-     $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
-     If ( $thisVersion -gt $currentVersion ) { 
-       $nvidiaDir = Join-Path $downloadDir "nvidia-$thisVersion"
-       $nvidiaSetup = Join-Path $nvidiaDir "setup.exe"
-       $outFile = Join-Path $downloadDir "nvidia-$thisVersion.exe"
+    Where { $_.Name -like "*_grid_*_server2019_*.exe" } |
+    ForEach-Object { 
+      $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
+      If ( $thisVersion -gt $currentVersion ) {
+        $newVersion = $thisVersion
+        $newVersionGcsObject = $_
+      }
+    }
 
-       Write-Status "Install-NvidiaDrivers: want to install $thisVersion (upgrade from: $currentVersion)"
-       Write-Status -Sev DEBUG ("Install-NvidiaDrivers: download {0}" -f $_.Name)
-       Read-GcsObject -InputObject $_ -OutFile $outFile -Force
-       # TODO check exit code
-       # if download succeeded, install
-       If ((Test-Path $outFile) -And (Get-Item $outFile).length -gt 0) {
-         Write-Status -Sev DEBUG "Install-NvidiaDrivers: extract $outFile"
-         & c:\gcloudrig\7zip\7z.exe x -y $outFile -o"$nvidiaDir" 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
-         Write-Status -Sev DEBUG "Install-NvidiaDrivers: run $nvidiaSetup"
-         & $nvidiaSetup -noreboot -clean -s 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
-         # TODO check exit code
-         Write-Status "Install-NvidiaDrivers: $nvidiaSetup done."
-         Break
-       } Else {
-         Write-Status -Sev ERROR "Failed to get $_"
-       }
-     } Else { 
-       Write-Status "Install-NvidiaDrivers: current: $currentVersion >= latest: $thisVersion"
-       Break
-     }
-   }
+  If ( $newVersion -gt $currentVersion ) {
+    $nvidiaDir = Join-Path $downloadDir "nvidia-$newVersion"
+    $nvidiaSetup = Join-Path $nvidiaDir "setup.exe"
+    $outFile = Join-Path $downloadDir "nvidia-$newVersion.exe"
+
+    Write-Status "Install-NvidiaDrivers: want to install $newVersion (upgrade from: $currentVersion)"
+    Write-Status -Sev DEBUG ("Install-NvidiaDrivers: download {0}" -f $_.Name)
+    Read-GcsObject -InputObject $newVersionGcsObject -OutFile $outFile -Force
+    # TODO check exit code
+    # if download succeeded, install
+    If ((Test-Path $outFile) -And (Get-Item $outFile).length -gt 0) {
+      Write-Status -Sev DEBUG "Install-NvidiaDrivers: extract $outFile"
+      & c:\gcloudrig\7zip\7z.exe x -y $outFile -o"$nvidiaDir" 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+      Write-Status -Sev DEBUG "Install-NvidiaDrivers: run $nvidiaSetup"
+      & $nvidiaSetup -noreboot -clean -s 2>&1 | Out-File "c:\gcloudrig\installer.txt" -Append
+      # TODO check exit code
+      Write-Status "Install-NvidiaDrivers: $nvidiaSetup done."
+    }
+  }
+
+  Write-Status "Install-NvidiaDrivers: current: $currentVersion >= latest: $newVersion"
 }
 
 Function Set-1610VideoModes {
