@@ -91,11 +91,10 @@ workflow Install-gCloudRig {
 
     New-GcloudrigShortcuts
   }
-}
 
   InlineScript {
     # all is complete, update setup state, remove the startup job
-    $(date) | Out-File "c:\gcloudrig\installer.complete"
+    $(Get-Date) | Out-File "c:\gcloudrig\installer.complete"
     Disable-GcloudrigInstaller
     Set-SetupState "complete"
     Write-Status "-----------------------"
@@ -160,9 +159,9 @@ Function Install-OptionalSoftware {
   )
 
   $InstallOptions.Keys `
-    | Where {$_ -like "Install*"} `
-    | Where {$InstallOptions.$_} `
-    | ForEach {                          
+    | Where-Object {$_ -like "Install*"} `
+    | Where-Object {$InstallOptions.$_} `
+    | ForEach-Object {                          
         $funcName=$_.Replace("Install", "Install-")
         Invoke-Command (Get-Item "function:$funcName").ScriptBlock
       }
@@ -296,7 +295,7 @@ Function Install-DeviceManagementModule {
 Function Install-7Zip {
   Write-Status "Installing 7-zip"
   $downloadPage = Invoke-WebRequest -Uri https://www.7-zip.org/download.html
-  $url=("https://www.7-zip.org/{0}" -f ($downloadPage.Links | Where {$_.outerHTML -Like '*x64.exe*Download*'} | Select-Object -First 1 | %{ $_.href }))
+  $url=("https://www.7-zip.org/{0}" -f ($downloadPage.Links | Where-Object {$_.outerHTML -Like '*x64.exe*Download*'} | Select-Object -First 1 | %{ $_.href }))
   Save-UrlToFile -URL $url -File "c:\gcloudrig\downloads\7zip.exe"
   Start-Process "c:\gcloudrig\downloads\7zip.exe" -ArgumentList '/S /D="C:\gcloudrig\7zip"' -Wait
 }
@@ -351,7 +350,7 @@ Function Install-ZeroTier {
   # wait for service to start and create identity
   $ZTAuthToken="$Env:ProgramData\ZeroTier\One\authtoken.secret"
   If ( -Not (Test-Path "$ZTAuthToken")) {
-    sleep 5
+    Start-Sleep 5
   }
 
   $ZTStatus = (& $ZTEXE -q /status | ConvertFrom-Json)
@@ -369,7 +368,7 @@ Function Install-ZeroTier {
 Function Install-TightVNC {
   Write-Status "Installing TightVNC..."
   $downloadPage=Invoke-WebRequest "https://tightvnc.com/download.php"
-  $url=($downloadPage.Links | Where {$_.innerText -like "Installer for Windows*64*bit*"} | Select-Object -First 1 | %{ $_.href})
+  $url=($downloadPage.Links | Where-Object {$_.innerText -like "Installer for Windows*64*bit*"} | Select-Object -First 1 | %{ $_.href})
   Save-UrlToFile -URL $url -File "c:\gcloudrig\downloads\tightvnc.msi"
   $psw = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\").DefaultPassword.substring(0, 8)
   & msiexec /i c:\gcloudrig\downloads\tightvnc.msi /log c:\gcloudrig\logs\tightvnc.msi.log /quiet /norestart ADDLOCAL="Server" SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1 SERVER_ALLOW_SAS=1 SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD="$psw" SET_ACCEPTHTTPCONNECTIONS=1 VALUE_OF_ACCEPTHTTPCONNECTIONS=0 2>&1 | Out-Null
@@ -397,7 +396,7 @@ Function Install-Battlenet {
   Write-Status "Installing madalien.com bnetlauncher..."
   # download bnetlauncher 
   $downloadPage = Invoke-Webrequest "https://madalien.com/stuff/bnetlauncher/"
-  $url = ($downloadPage.Links | Where {$_.href -Like "https://madalien.com/pub/bnetlauncher/bnetlauncher_*.zip"} | Select-Object -First 1 | %{ $_.href})
+  $url = ($downloadPage.Links | Where-Object {$_.href -Like "https://madalien.com/pub/bnetlauncher/bnetlauncher_*.zip"} | Select-Object -First 1 | %{ $_.href})
   Save-UrlToFile -URL $url -File "c:\gcloudrig\downloads\bnetlauncher.zip"
   Expand-Archive -LiteralPath "c:\gcloudrig\downloads\bnetlauncher.zip" -DestinationPath "c:\gcloudrig\bnetlauncher"
 
@@ -405,7 +404,7 @@ Function Install-Battlenet {
   # download bnet (needs to be launched twice because of some error)
   Save-UrlToFile -URL "https://www.battle.net/download/getInstallerForGame?os=win&locale=enUS&version=LIVE&gameProgram=BATTLENET_APP" -File "c:\gcloudrig\downloads\battlenet.exe"
   & c:\gcloudrig\downloads\battlenet.exe --lang=english
-  sleep 25
+  Start-Sleep 25
   Stop-Process -Name "battlenet"
   & c:\gcloudrig\downloads\battlenet.exe --lang=english --bnetdir="c:\Program Files (x86)\Battle.net" | Out-Null
 }
@@ -453,12 +452,12 @@ Function Install-Chocolatey {
 }
 
 Function Install-VBAudioCable {
-  if ($(Get-Device | where Name -eq "VB-Audio Virtual Cable").count -eq 0) {
+  if ($(Get-Device | Where-Object Name -eq "VB-Audio Virtual Cable").count -eq 0) {
     Write-Status "Installing VB-Audio Cable"
 
     # get link for latest version of VB-Audio Cable
     $downloadPage = Invoke-WebRequest "https://www.vb-audio.com/Cable/"
-    $downloadLink=($downloadPage.Links | Where {$_.href -Like '*/Download_CABLE/*'} | Select-Object -First 1 | %{ $_.href })
+    $downloadLink=($downloadPage.Links | Where-Object {$_.href -Like '*/Download_CABLE/*'} | Select-Object -First 1 | %{ $_.href })
 
     # download and install driver
     Save-UrlToFile -URL $downloadLink -File "c:\gcloudrig\downloads\vbcable.zip"
@@ -471,10 +470,10 @@ Function Install-VBAudioCable {
       # per https://www.hybrid-analysis.com/sample/963b71526274f236ddc82e6becf1ef501310ffda47100d3be52b9c8e3ca9b937?environmentId=120
       
       # give the new device time to settle
-      Sleep 2
+      Start-Sleep 2
 
       Import-Module DeviceManagement
-      if ($(Get-Device | where Name -eq "VB-Audio Virtual Cable").count -eq 0) {
+      if ($(Get-Device | Where-Object Name -eq "VB-Audio Virtual Cable").count -eq 0) {
         Write-Status "VB-Cable failed to install"
       }
     } Else {
@@ -570,14 +569,14 @@ Function Set-VirtualDisplayAdapter {
 
   # disable the basic display adapter and its monitors
   Import-Module DeviceManagement
-  Get-Device | where Name -eq "Microsoft Basic Display Adapter" | Disable-Device  # aws/gce
+  Get-Device | Where-Object Name -eq "Microsoft Basic Display Adapter" | Disable-Device  # aws/gce
   #Get-Device | where Name -eq "Microsoft Hyper-V Video" | Disable-Device  # azure
   #Get-Device | where Name -eq "Generic PnP Monitor" | where DeviceParent -like "*BasicDisplay*" | Disable-Device  # azure
 
   # delete the basic display adapter's drivers (since some games still insist on using the basic adapter)
   takeown /f C:\Windows\System32\Drivers\BasicDisplay.sys
   icacls C:\Windows\System32\Drivers\BasicDisplay.sys /grant "$env:username`:F"
-  move C:\Windows\System32\Drivers\BasicDisplay.sys C:\Windows\System32\Drivers\BasicDisplay.old
+  Move-Item C:\Windows\System32\Drivers\BasicDisplay.sys C:\Windows\System32\Drivers\BasicDisplay.old
 
   # enable NvFBC
   & c:\gcloudrig\NvFBCEnable\NvFBCEnable.exe -enable -noreset | Out-Null
@@ -638,38 +637,13 @@ Function Get-GcloudrigSetupOptions {
   return $SetupOptions
 }
 
-Function Set-SetupState {
-  Param([parameter(Mandatory=$true)] [String] $State)
-
-  & gcloud compute project-info add-metadata --metadata "gcloudrig-setup-state=$State" --quiet 2>&1 | Out-Null
-  Write-Status -Sev DEBUG "changed setup state to $State"
-}
-
-Function Get-SetupState {
-  $SetupStateExists=(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-state")
-  if ($SetupStateExists) {
-    $SetupState=(Get-GceMetadata -Path "project/attributes/gcloudrig-setup-state")
-  } Else {
-    $SetupState = $null
-  }
-  return $SetupState
-}
-
-Function Get-GcloudrigSetupOptions {
-  $SetupOptions = $null
-  If(Get-GceMetadata -Path "project/attributes" | Select-String "gcloudrig-setup-options") {
-    $SetupOptions=Get-GceMetadata -Path "project/attributes/gcloudrig-setup-options" | ConvertFrom-JsonAsHashtable
-  }
-  return $SetupOptions
-}
-
 Function Write-Status {
   Param(
     [parameter(Mandatory=$true)] [String] $Text,
     [String] $Sev = "INFO"
   )
   If (Test-Path "c:\gcloudrig") {
-    "$(Date) $Sev $Text" | Out-File "c:\gcloudrig\installer.txt" -Append
+    "$(Get-Date) $Sev $Text" | Out-File "c:\gcloudrig\installer.txt" -Append
   }
   New-GcLogEntry -Severity "$Sev" -LogName gcloudrig-install -TextPayload "$Text" | Out-Null
 }
@@ -713,7 +687,7 @@ Function Install-NvidiaDrivers {
   )
   # see https://cloud.google.com/compute/docs/gpus/add-gpus#install-driver-manual
 
-  $currentVersion = Get-Package | Where { $_.Name -like "NVIDIA Graphics Driver*" } | %{ $_.Version }
+  $currentVersion = Get-Package | Where-Object { $_.Name -like "NVIDIA Graphics Driver*" } | %{ $_.Version }
   If (!$currentVersion) {
     # assume this is a fresh install
     $currentVersion=0
@@ -721,15 +695,15 @@ Function Install-NvidiaDrivers {
 
   # Query GCS for the latest nVidia GRID driver
   # download if newer than current install
-  Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" |
-    Where { $_.Name -like "*_grid_*_server2019_*.exe" } |
-    ForEach-Object { 
-      $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
-      If ( $thisVersion -gt $currentVersion ) {
-        $newVersion = $thisVersion
-        $newVersionGcsObject = $_
-      }
+  $gcsObjects = @(Get-GcsObject -Bucket $nvidiaDriverBucket -Prefix "GRID" | Where-Object { $_.Name -like "*_grid_*_server2019_*.exe" })
+
+  ForEach-Object -InputObject $gcsObjects { 
+    $thisVersion=$_.Name.Split("/")[2].Split("_")[0]
+    If ( $thisVersion -gt $currentVersion ) {
+      $newVersion = $thisVersion
+      $newVersionGcsObject = $_
     }
+  }
 
   If ( $newVersion -gt $currentVersion ) {
     $nvidiaDir = Join-Path $downloadDir "nvidia-$newVersion"
@@ -757,13 +731,7 @@ Function Install-NvidiaDrivers {
 Function Set-1610VideoModes {
   # set proper video modes
   # default: {*}S 720x480x8,16,32,64=1; 720x576x8,16,32,64=8032;SHV 1280x720x8,16,32,64 1680x1050x8,16,32,64 1920x1080x8,16,32,64 2048x1536x8,16,32,64=1; 1920x1440x8,16,32,64=1F; 640x480x8,16,32,64 800x600x8,16,32,64 1024x768x8,16,32,64=1FFF; 1920x1200x8,16,32,64=3F; 1600x900x8,16,32,64=3FF; 2560x1440x8,16,32,64 2560x1600x8,16,32,64=7B; 1600x1024x8,16,32,64 1600x1200x8,16,32,64=7F;1280x768x8,16,32,64 1280x800x8,16,32,64 1280x960x8,16,32,64 1280x1024x8,16,32,64 1360x768x8,16,32,64 1366x768x8,16,32,64=7FF; 1152x864x8,16,32,64=FFF;
-  (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Video\*\0000") | Where ProviderName -eq "NVIDIA" | ForEach { Set-ItemProperty $_.PSPath -Name "NV_Modes" -Value "{*}S 1024x640 1280x800 1440x900 1680x1050 1920x1200 2304x1440 2560x1600=1;" }
-}
-
-Function Set-1610VideoModes {
-  # set proper video modes
-  # default: {*}S 720x480x8,16,32,64=1; 720x576x8,16,32,64=8032;SHV 1280x720x8,16,32,64 1680x1050x8,16,32,64 1920x1080x8,16,32,64 2048x1536x8,16,32,64=1; 1920x1440x8,16,32,64=1F; 640x480x8,16,32,64 800x600x8,16,32,64 1024x768x8,16,32,64=1FFF; 1920x1200x8,16,32,64=3F; 1600x900x8,16,32,64=3FF; 2560x1440x8,16,32,64 2560x1600x8,16,32,64=7B; 1600x1024x8,16,32,64 1600x1200x8,16,32,64=7F;1280x768x8,16,32,64 1280x800x8,16,32,64 1280x960x8,16,32,64 1280x1024x8,16,32,64 1360x768x8,16,32,64 1366x768x8,16,32,64=7FF; 1152x864x8,16,32,64=FFF;
-  (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Video\*\0000") | Where ProviderName -eq "NVIDIA" | ForEach { Set-ItemProperty $_.PSPath -Name "NV_Modes" -Value "{*}S 1024x640 1280x800 1440x900 1680x1050 1920x1200 2304x1440 2560x1600=1;" }
+  (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Video\*\0000") | Where-Object ProviderName -eq "NVIDIA" | ForEach-Object { Set-ItemProperty $_.PSPath -Name "NV_Modes" -Value "{*}S 1024x640 1280x800 1440x900 1680x1050 1920x1200 2304x1440 2560x1600=1;" }
 }
 
 Function Update-GcloudRigModule {
@@ -788,7 +756,7 @@ Function Get-ZeroTierIPv4Address {
     $ZTNetwork = & $ZTEXE -q /network | ConvertFrom-Json
     If ($ZTNetwork) {
       # parse for IPv4 address
-      Return $ZTNetwork.assignedAddresses | Where{ $_ -like "*/24" } | Select-Object -First 1 | %{ $_.Split("/")[0] }
+      Return $ZTNetwork.assignedAddresses | Where-Object{ $_ -like "*/24" } | Select-Object -First 1 | %{ $_.Split("/")[0] }
     } Else {
       Write-Error "Failed to get ZeroTier IPv4 address"
       Return
@@ -902,7 +870,7 @@ Function Invoke-GcloudrigInstaller {
       break
     }
     "installing" {
-      $job=Get-Job | Where {$_.Name -eq "gCloudRigInstaller"}
+      $job=Get-Job | Where-Object {$_.Name -eq "gCloudRigInstaller"}
       If( -Not $job) {
         Write-Status -Sev ERROR "gCloudRigInstaller job not found"
         Return
