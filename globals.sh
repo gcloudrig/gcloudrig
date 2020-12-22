@@ -13,7 +13,7 @@ IMAGEBASEFAMILY="windows-2019"
 IMAGEBASEPROJECT="windows-cloud"
 
 # various resource and label names
-GCLOUDRIG_PREFIX="gcloudrig-dev"
+GCLOUDRIG_PREFIX="gcloudrig"
 GCRLABEL="${GCLOUDRIG_PREFIX}"                   # also set in gcloudrig-boot.ps1
 GAMESDISK="${GCLOUDRIG_PREFIX}-games"            # also set in gcloudrig-boot.ps1
 IMAGEFAMILY="${GCLOUDRIG_PREFIX}"

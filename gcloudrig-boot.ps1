@@ -2,7 +2,7 @@
 #
 
 # these all need to match globals.sh
-$GcloudrigPrefix="gcloudrig-dev"
+$GcloudrigPrefix="gcloudrig"
 $GCPLabel="$($GcloudrigPrefix)"
 $GamesDiskName="$($GcloudrigPrefix)-games"
 
