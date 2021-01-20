@@ -729,7 +729,7 @@ function gcloudrig_start {
   ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
   BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
 
-  echo "To watch boot/setup progress, visit https://console.cloud.google.com/logs/viewer?project=$PROJECT_ID&advancedFilter=logName:%22projects%2F$PROJECT_ID%2Flogs%22gcloudrig-install"
+  echo "To watch boot/setup progress, visit https://console.cloud.google.com/logs/viewer?project=$PROJECT_ID&advancedFilter=logName%3Dprojects%2F$PROJECT_ID%2Flogs%2Fgcloudrig-install"
 }
 
 # scale to 0 and wait
