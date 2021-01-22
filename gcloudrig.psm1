@@ -381,7 +381,7 @@ Function Install-TightVNC {
 
 Function Install-Parsec {
   Write-Status "Installing Parsec..."
-  Save-UrlToFile -URL "https://s3.amazonaws.com/parsec-build/package/parsec-windows.exe" -File "c:\gcloudrig\downloads\parsec-windows.exe"
+  Save-UrlToFile -URL "https://builds.parsecgaming.com/package/parsec-windows.exe" -File "c:\gcloudrig\downloads\parsec-windows.exe"
   & c:\gcloudrig\downloads\parsec-windows.exe /S
 }
 
