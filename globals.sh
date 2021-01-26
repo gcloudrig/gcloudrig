@@ -1,9 +1,31 @@
 #!/usr/bin/env bash
 
-# load config
-DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-# shellcheck source=config.sh
-source "$DIR/config.sh"
+##############################################################
+###                   _             _     _                ###
+###           __ _ __| |___ _  _ __| |_ _(_)__ _           ###
+###          / _` / _| / _ \ || / _` | '_| / _` |          ###
+###          \__, \__|_\___/\_,_\__,_|_| |_\__, |          ###
+###          |___/                         |___/           ###
+###                                                        ###
+###  globals.sh                                            ###
+###                                                        ###
+###  this is the guts of gcloudrig; it's not meant to be   ###
+###  run directly!                                         ###
+###                                                        ###
+##############################################################
+# bash "what directory am i" dance
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+# emergency debug
+set -e; [ -n "$GCLOUDRIG_DEBUG" ] && set -x
+source "config.sh"
+##############################################################
 
 ########
 # INIT #
@@ -73,8 +95,6 @@ function init_common {
   GCSBUCKET="gs://$PROJECT_ID"
   local groupsize=0
 
-  gcloudrig_update_powershell_module 
-
   # get a comma separated list of zones with accelerators in the current region
   ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
   ZONES="${ZONES//[[:space:]]/,}"
@@ -135,7 +155,7 @@ function gcloudrig_config_setup {
           if [ "$acct" == "new account" ] ; then
             gcloud auth login --no-launch-browser && break
           else
-            gcloud config set account "$acct" && break
+            gcloud config set account "$acct" --quiet && break
           fi
         fi
       done
@@ -167,7 +187,7 @@ function gcloudrig_config_setup {
             gcloud_projects_create "$PROJECT_ID"
           else
             PROJECT_ID="${PROJECTS[$project]}"
-            gcloud config set project "$PROJECT_ID"
+            gcloud config set project "$PROJECT_ID" --quiet
           fi
           break
         fi
@@ -265,11 +285,11 @@ function gcloudrig_select_displayscaling {
 }
 
 function gcloudrig_select_zerotier_network {
-  local prompt="Gcloudrig ZeroTier network id [or quit]: " 
+  local prompt="Enter the ZeroTier Network ID [or quit]: " 
 
   cat <<EOF
 
-We strongly recommend you create a new ZeroTier network for Gcloudrig
+We strongly recommend you create a new ZeroTier network for gcloudrig
 https://my.zerotier.com/network
 
 EOF
@@ -300,8 +320,8 @@ function gcloudrig_select_region {
     echo
     echo "Select a region to use:"
     select REGION in $ACCELERATORREGIONS ; do
-      [ -n "$REGION" ] && gcloud config set compute/region "$REGION" && gcloud compute project-info add-metadata \
-    --metadata google-compute-default-region="$REGION" && break
+      [ -n "$REGION" ] && gcloud config set compute/region "$REGION" --quiet && gcloud compute project-info add-metadata \
+    --metadata google-compute-default-region="$REGION" --quiet && break
     done
   else
     echo >&2
@@ -433,10 +453,12 @@ function gcloudrig_create_instance_template {
   sed -i 's/^$GamesDiskName\=.*/$GamesDiskName="'"$GAMESDISK"'"/' "$DIR/gcloudrig-boot.ps1"
 
   echo "Creating instance template '$templateName'..."
+
+  #shellcheck disable=SC2086
   gcloud compute instance-templates create "$templateName" \
       --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
       --boot-disk-type "$BOOTTYPE" \
-      "$imageFlags" \
+      $imageFlags \
       --labels "$GCRLABEL=true" \
       --machine-type "$INSTANCETYPE" \
       --maintenance-policy "TERMINATE" \
@@ -544,12 +566,13 @@ function gcloudrig_check_quota_gpus_all_regions {
   if [ -v "QUOTAS[GPUS_ALL_REGIONS]" ] ; then
     # gcloud --format option sometimes outputs nothing if the value is 0.0
     if [ -z "${QUOTAS[GPUS_ALL_REGIONS]}" ] || [ "${QUOTAS[GPUS_ALL_REGIONS]}" == "0.0" ] ; then
+      echo "GPU Quota Check: GPUS_ALL_REGIONS NOT_OK (limit: ${QUOTAS["GPUS_ALL_REGIONS"]})"
+
       cat <<EOF >&2
 
 =-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 You have to manually request a quota increase for GPUS_ALL_REGIONS
-
   https://console.cloud.google.com/iam-admin/quotas?project=${PROJECT_ID}&metric=GPUs%20(all%20regions)
 
 See this page for more info on requesting quota:
@@ -560,10 +583,10 @@ See this page for more info on requesting quota:
 EOF
       exit 1
     else
-      echo "GPUS_ALL_REGIONS quota is ${QUOTAS["GPUS_ALL_REGIONS"]}"
+      echo "GPU Quota Check: GPUS_ALL_REGIONS OK (limit: ${QUOTAS["GPUS_ALL_REGIONS"]})"
     fi
   else
-    echo "no GPUS_ALL_REGIONS quota, good to go."
+    echo "GPU Quota Check: GPUS_ALL_REGIONS OK (no limit)"
   fi
 }
 
@@ -574,7 +597,7 @@ EOF
 function gcloudrig_enable_software_setup {
   # set project level metadata that gcloudrig-boot.ps1 will check to start a
   # software install
-  echo "Enabling Gcloudrig software installer..."
+  echo "Enabling gcloudrig software installer..."
   gcloud compute project-info add-metadata --quiet \
     --metadata "gcloudrig-setup-state=new" \
     --metadata-from-file gcloudrig-setup-options=<(gcloudrig_setup_options_to_json) 
@@ -677,6 +700,8 @@ function gcloudrig_set_running_instance_zone_bootdisk {
 # scale to 1 and wait, with retries every 5 minutes
 function gcloudrig_start {
   echo "Starting gcloudrig..."
+
+  gcloudrig_update_powershell_module
 
   # scale to 1
   gcloud compute instance-groups managed resize "$INSTANCEGROUP" \

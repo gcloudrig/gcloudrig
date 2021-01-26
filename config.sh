@@ -1,9 +1,20 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 
-##########
-# CONFIG #
-##########
+##############################################################
+###                   _             _     _                ###
+###           __ _ __| |___ _  _ __| |_ _(_)__ _           ###
+###          / _` / _| / _ \ || / _` | '_| / _` |          ###
+###          \__, \__|_\___/\_,_\__,_|_| |_\__, |          ###
+###          |___/                         |___/           ###
+###                                                        ###
+###  config.sh                                             ###
+###                                                        ###
+###  you shouldn't have to edit this unless you really     ###
+###  want to - e.g. testing a different GPU or using your  ###
+###  own custom image                                      ###
+###                                                        ###
+##############################################################
 
 # What GPU would you like and how many? (See https://cloud.google.com/compute/docs/gpus)
 ACCELERATORTYPE="nvidia-tesla-p4-vws"
@@ -18,7 +29,7 @@ IMAGEBASEFAMILY="windows-2019"
 IMAGEBASEPROJECT="windows-cloud"
 
 # Various resource and label names
-GCLOUDRIG_PREFIX="gcloudrig"                     # note: also used in gcloudrig-boot.ps1
+GCLOUDRIG_PREFIX="gcloudrig-dev"                     # note: also used in gcloudrig-boot.ps1
 GCRLABEL="${GCLOUDRIG_PREFIX}"                   # note: also used in gcloudrig-boot.ps1
 GAMESDISK="${GCLOUDRIG_PREFIX}-games"            # note: also used in gcloudrig-boot.ps1
 IMAGEFAMILY="${GCLOUDRIG_PREFIX}"
@@ -34,6 +45,7 @@ PROJECT_ID=""
 ZONES=""
 GCSBUCKET=""
 
+# default setup options; these will also be selectable during ./setup.sh
 declare -A SETUPOPTIONS
 SETUPOPTIONS[ZeroTierNetwork]=""
 SETUPOPTIONS[VideoMode]="1920x1080"
