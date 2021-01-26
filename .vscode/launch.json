@@ -6,10 +6,19 @@
     {
       "type": "bashdb",
       "request": "launch",
-      "name": "Bash-Debug (hardcoded script name)",
+      "name": "Bash-Debug (setup.sh)",
       "terminalKind": "integrated",
       "cwd": "${workspaceFolder}",
       "program": "${workspaceFolder}/setup.sh",
+      "args": [],
+    },
+    {
+      "type": "bashdb",
+      "request": "launch",
+      "name": "Bash-Debug (scale-down.sh)",
+      "terminalKind": "integrated",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/scale-down.sh",
       "args": [],
     }
   ]

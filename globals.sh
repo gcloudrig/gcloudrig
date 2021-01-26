@@ -37,6 +37,11 @@ function init_gcloudrig {
 
   if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID="$(gcloud config get-value core/project --quiet 2> /dev/null)"
+    
+    # Still no project? run config setup
+    if [ -z "$PROJECT_ID" ]; then
+      gcloudrig_config_setup
+    fi
   fi
 
   if [ -z "$REGION" ]; then
