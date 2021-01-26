@@ -47,7 +47,7 @@ You'll also be charged for the following while your rig is running and at rest:
    Created [gcloudrig].
    Activated [gcloudrig].
 
-   You can use https://cloudpingtest.com/gcp to find the closest region
+   You can use https://cloudharmony.com/speedtest-latency-for-google:compute to test for latency and find your closest region.
    
    Select a region to use:
    1) asia-southeast1          5) us-central1
