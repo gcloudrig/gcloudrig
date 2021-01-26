@@ -1,13 +1,6 @@
+FROM docker:19.03.11 as static-docker-source
+
 FROM gitpod/workspace-full
-
-# Install custom tools, runtimes, etc.
-# For example "bastet", a command-line tetris clone:
-# RUN brew install bastet
-#
-# More information: https://www.gitpod.io/docs/config-docker/
-
-# install google cloud sdk
-# ref: https://github.com/GoogleCloudPlatform/cloud-sdk-docker/blob/master/Dockerfile
 ARG CLOUD_SDK_VERSION=324.0.0
 ENV CLOUD_SDK_VERSION=$CLOUD_SDK_VERSION
 ENV PATH "$PATH:/opt/google-cloud-sdk/bin/"
@@ -47,3 +40,4 @@ RUN apt-get install -qqy \
         python3-pip
 RUN pip3 install pyopenssl
 RUN git config --system credential.'https://source.developers.google.com'.helper gcloud.sh
+# VOLUME ["/root/.config", "/root/.kube"]
