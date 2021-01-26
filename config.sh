@@ -24,6 +24,9 @@ ACCELERATORCOUNT="1"
 INSTANCETYPE="n1-standard-8"
 BOOTTYPE="pd-ssd"
 
+# do we make preemptible instances?
+PREEMPTIBLE="true"
+
 # GCP Base Image and Family (replace these if you're using your own custom image - give it a family name and enter the Project ID)
 IMAGEBASEFAMILY="windows-2019"
 IMAGEBASEPROJECT="windows-cloud"
