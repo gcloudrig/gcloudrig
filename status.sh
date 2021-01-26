@@ -1,17 +1,31 @@
 #!/usr/bin/env bash
-#
-# 
 
-# exit on error
-set -e
-[ -n "$GCLOUDRIG_DEBUG" ] && set -x
+##############################################################
+###                   _             _     _                ###
+###           __ _ __| |___ _  _ __| |_ _(_)__ _           ###
+###          / _` / _| / _ \ || / _` | '_| / _` |          ###
+###          \__, \__|_\___/\_,_\__,_|_| |_\__, |          ###
+###          |___/                         |___/           ###
+###                                                        ###
+###  status.sh                                             ###
+###                                                        ###
+###  invoking this script will spit out information about  ###
+###  the current state of your rig's resources; note that  ###
+###  it's probably easier to do this directly in the       ###
+###  GCP Web Console, but you do you.                      ###
+###                                                        ###
+##############################################################
+# bash "what directory am i" dance
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+source "globals.sh"
+##############################################################
 
-# full path to script dir
-DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-
-# load globals
-# shellcheck source=globals.sh
-source "$DIR/globals.sh"
 init_gcloudrig;
 
 echo

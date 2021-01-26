@@ -1,4 +1,16 @@
-# gCloudRig Powershell module
+##############################################################
+###                   _             _     _                ###
+###           __ _ __| |___ _  _ __| |_ _(_)__ _           ###
+###          / _` / _| / _ \ || / _` | '_| / _` |          ###
+###          \__, \__|_\___/\_,_\__,_|_| |_\__, |          ###
+###          |___/                         |___/           ###
+###                                                        ###
+###  gcloudrig.psm1                                        ###
+###                                                        ###
+###  This module is responsible for handling the rig-side  ###
+###  of things;  initial setup, driver updates, etc.       ###
+###                                                        ###
+##############################################################
 
 # Module level variables
 # NOTE: these are NOT accessible within a Workflow
