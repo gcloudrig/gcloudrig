@@ -69,7 +69,6 @@ function init_gcloudrig {
 }
 
 function init_setup {
-
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
   if [ -n "$REGION" ] && [ -n "$PROJECT_ID" ] ; then

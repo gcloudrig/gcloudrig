@@ -17,7 +17,7 @@
 ##############################################################
 
 # What GPU would you like and how many? (See https://cloud.google.com/compute/docs/gpus)
-ACCELERATORTYPE="nvidia-tesla-p4-vws"
+ACCELERATORTYPE="nvidia-tesla-t4-vws"
 ACCELERATORCOUNT="1"
 
 # GCP Instance and Boot Disk type
