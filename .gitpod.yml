@@ -1,0 +1,12 @@
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+  - init: echo "No init!"
+    command: echo "No command!"
+
+vscode:
+  extensions:
+    - mads-hartmann.bash-ide-vscode@1.11.0:VLESO/tPCjrfzzLcJy83aQ==
+    - rogalmic.bash-debug@0.3.9:8w+xOBwrJt9TA7S1JlrZng==
+    - timonwong.shellcheck@0.12.3:7D/sHqyfNurcPHjp4txyCg==

@@ -1,23 +1,38 @@
 #!/usr/bin/env bash
 
-# exit on error
-set -e
-[ -n "$GCLOUDRIG_DEBUG" ] && set -x
+##############################################################
+###                   _             _     _                ###
+###           __ _ __| |___ _  _ __| |_ _(_)__ _           ###
+###          / _` / _| / _ \ || / _` | '_| / _` |          ###
+###          \__, \__|_\___/\_,_\__,_|_| |_\__, |          ###
+###          |___/                         |___/           ###
+###                                                        ###
+###  reset-windows-password.sh                             ###
+###                                                        ###
+###  if you forget your password or are like me and don't  ###
+###  bother to remember it at all, run this to reset it.   ###
+###  note you will have to provide the new password to     ###
+###  autologin - once you remote in, update autologin via  ###
+###  Start > Run > 'control userpasswords2' and toggle the ###
+###  "Users require a password to login to this computer"  ###
+###  checkbox.                                             ###
+###                                                        ###
+##############################################################
+# bash "what directory am i" dance
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+source "globals.sh"
+##############################################################
 
-# full path to script dir
-DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-
-# load globals
-# shellcheck source=globals.sh
-source "$DIR/globals.sh"
 init_gcloudrig;
 
 INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
-
 ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
 
 # set/reset windows credentials
-gcloud compute reset-windows-password "$INSTANCE" \
-	--user "$WINDOWSUSER" \
-	--zone "$ZONE" \
-	--format "table[box,title='Windows Credentials'](ip_address,username,password)"
+gcloudrig_reset_windows_password

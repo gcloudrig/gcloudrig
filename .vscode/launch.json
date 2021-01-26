@@ -1,0 +1,25 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "bashdb",
+      "request": "launch",
+      "name": "Bash-Debug (setup.sh)",
+      "terminalKind": "integrated",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/setup.sh",
+      "args": [],
+    },
+    {
+      "type": "bashdb",
+      "request": "launch",
+      "name": "Bash-Debug (scale-down.sh)",
+      "terminalKind": "integrated",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/scale-down.sh",
+      "args": [],
+    }
+  ]
+}

@@ -1,43 +1,31 @@
 #!/usr/bin/env bash
 
-# what gpu and how many? see https://cloud.google.com/compute/docs/gpus
-ACCELERATORTYPE="nvidia-tesla-p4-vws"
-ACCELERATORCOUNT="1"
+##############################################################
+###                   _             _     _                ###
+###           __ _ __| |___ _  _ __| |_ _(_)__ _           ###
+###          / _` / _| / _ \ || / _` | '_| / _` |          ###
+###          \__, \__|_\___/\_,_\__,_|_| |_\__, |          ###
+###          |___/                         |___/           ###
+###                                                        ###
+###  globals.sh                                            ###
+###                                                        ###
+###  this is the guts of gcloudrig; it's not meant to be   ###
+###  run directly!                                         ###
+###                                                        ###
+##############################################################
+# bash "what directory am i" dance
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
-# instance and boot disk type?
-INSTANCETYPE="n1-standard-8"
-BOOTTYPE="pd-ssd"
-
-# base image?
-IMAGEBASEFAMILY="windows-2019"
-IMAGEBASEPROJECT="windows-cloud"
-
-# various resource and label names
-GCLOUDRIG_PREFIX="gcloudrig"
-GCRLABEL="${GCLOUDRIG_PREFIX}"                   # also set in gcloudrig-boot.ps1
-GAMESDISK="${GCLOUDRIG_PREFIX}-games"            # also set in gcloudrig-boot.ps1
-IMAGEFAMILY="${GCLOUDRIG_PREFIX}"
-INSTANCEGROUP="${GCLOUDRIG_PREFIX}-group"
-INSTANCENAME="${GCLOUDRIG_PREFIX}"
-SETUPTEMPLATE="${GCLOUDRIG_PREFIX}-setup-template"
-CONFIGURATION="${GCLOUDRIG_PREFIX}"
-WINDOWSUSER="gcloudrig"
-
-# other globals; overrides may be ignored
-REGION=""
-PROJECT_ID=""
-ZONES=""
-GCSBUCKET=""
-
-declare -A SETUPOPTIONS
-SETUPOPTIONS[ZeroTierNetwork]=""
-SETUPOPTIONS[VideoMode]="1920x1080"
-SETUPOPTIONS[DisplayScaling]=""
-SETUPOPTIONS[InstallSteam]="false"
-SETUPOPTIONS[InstallBattlenet]="false"
-SETUPOPTIONS[InstallSSH]="false"
-SETUPOPTIONS[InstallGoogleChrome]="false"
-SETUPOPTIONS[InstallFirefox]="false"
+# emergency debug
+set -e; [ -n "$GCLOUDRIG_DEBUG" ] && set -x
+source "config.sh"
+##############################################################
 
 ########
 # INIT #
@@ -49,6 +37,11 @@ function init_gcloudrig {
 
   if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID="$(gcloud config get-value core/project --quiet 2> /dev/null)"
+    
+    # Still no project? run config setup
+    if [ -z "$PROJECT_ID" ]; then
+      gcloudrig_config_setup
+    fi
   fi
 
   if [ -z "$REGION" ]; then
@@ -56,7 +49,7 @@ function init_gcloudrig {
     
     # Cloud Shell doesn't persist configurations, so look at project_ID metadata instead
     if [ -z "$REGION" ]; then
-      REGION="$(gcloud compute project-info describe --project=$PROJECT_ID --format 'value(commonInstanceMetadata.items[google-compute-default-region])' --quiet 2> /dev/null)"
+      REGION="$(gcloud compute project-info describe --project="$PROJECT_ID" --format 'value(commonInstanceMetadata.items[google-compute-default-region])' --quiet 2> /dev/null)"
     fi
   fi
 
@@ -64,16 +57,7 @@ function init_gcloudrig {
   if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
     # check if we're running in cloudshell, since it likes to eat gcloud configs
     GCE_ATTRIBUTE_BASE_SERVER_URL="$(curl -H "Metadata-Flavor: Google" metadata/computeMetadata/v1/instance/attributes/base-server-url)"
-    if [ $GCE_ATTRIBUTE_BASE_SERVER_URL == "https://ssh.cloud.google.com" ]; then
-      gcloudrig_config_setup
-    fi
-  fi
-
-  # if we don't have a project id or region yet
-  if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
-    # check if we're running in cloudshell, since it likes to eat gcloud configs
-    GCE_ATTRIBUTE_BASE_SERVER_URL="$(curl -H "Metadata-Flavor: Google" metadata/computeMetadata/v1/instance/attributes/base-server-url)"
-    if [ $GCE_ATTRIBUTE_BASE_SERVER_URL == "https://ssh.cloud.google.com" ]; then
+    if [ "$GCE_ATTRIBUTE_BASE_SERVER_URL" == "https://ssh.cloud.google.com" ]; then
       gcloudrig_config_setup
     fi
   fi
@@ -90,10 +74,9 @@ function init_gcloudrig {
 }
 
 function init_setup {
-
   DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd)"
 
-  if [ -n "$REGION" -a -n "$PROJECT_ID" ] ; then
+  if [ -n "$REGION" ] && [ -n "$PROJECT_ID" ] ; then
     # using settings at the top of this file
     enable_required_gcloud_apis
   else
@@ -116,8 +99,6 @@ function init_common {
   GCSBUCKET="gs://$PROJECT_ID"
   local groupsize=0
 
-  gcloudrig_update_powershell_module 
-
   # get a comma separated list of zones with accelerators in the current region
   ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
   ZONES="${ZONES//[[:space:]]/,}"
@@ -128,6 +109,7 @@ function init_common {
     echo "#################################################################" >&2
     echo "ERROR: There are no zones in $REGION with accelerator type \"$ACCELERATORTYPE\"" >&2
     echo "Re-run ./setup.sh and choose a region from this list:" >&2
+    # shellcheck disable=SC2005
     echo "$(gcloudrig_get_accelerator_zones)" >&2
     exit 1
   fi
@@ -136,7 +118,7 @@ function init_common {
   groupsize=$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(size)" --quiet || echo "0")
 
   # if an instance is running, expose some more vars
-  if ! [ -z "$groupsize" ] && [ "$groupsize" -gt "0" ]; then
+  if [ -n "$groupsize" ] && [ "$groupsize" -gt "0" ]; then
     INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
     ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
     BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
@@ -177,7 +159,7 @@ function gcloudrig_config_setup {
           if [ "$acct" == "new account" ] ; then
             gcloud auth login --no-launch-browser && break
           else
-            gcloud config set account $acct && break
+            gcloud config set account "$acct" --quiet && break
           fi
         fi
       done
@@ -201,7 +183,7 @@ function gcloudrig_config_setup {
     else
       echo
       echo "Select project to use:"
-      select project in ${!PROJECTS[@]} "(new project)" ; do
+      select project in "${!PROJECTS[@]}" "(new project)" ; do
         if [ -n "$project" ] ; then
           if [ "$project" == "(new project)" ] ; then
             # user requested to use a new project
@@ -209,7 +191,7 @@ function gcloudrig_config_setup {
             gcloud_projects_create "$PROJECT_ID"
           else
             PROJECT_ID="${PROJECTS[$project]}"
-            gcloud config set project "$PROJECT_ID"
+            gcloud config set project "$PROJECT_ID" --quiet
           fi
           break
         fi
@@ -230,7 +212,8 @@ function gcloudrig_config_setup {
 
 function gcloudrig_select_software_options {
   local installerOptions
-  local keys="$(echo ${!SETUPOPTIONS[@]} | fmt -1 | sort)"
+  local keys
+  keys="$(echo "${!SETUPOPTIONS[@]}" | fmt -1 | sort)"
 
   while true ; do
     installerOptions=""
@@ -306,16 +289,16 @@ function gcloudrig_select_displayscaling {
 }
 
 function gcloudrig_select_zerotier_network {
-  local prompt="Gcloudrig ZeroTier network id [or quit]: " 
+  local prompt="Enter the ZeroTier Network ID [or quit]: " 
 
   cat <<EOF
 
-We strongly recommend you create a new ZeroTier network for Gcloudrig
+We strongly recommend you create a new ZeroTier network for gcloudrig
 https://my.zerotier.com/network
 
 EOF
 
-  while read -e -p "$prompt" ; do
+  while read -r -e -p "$prompt" ; do
     if echo "$REPLY" | grep -Eiq '^[0-9a-f]{16}$' ; then
       SETUPOPTIONS[ZeroTierNetwork]="$REPLY"
       return
@@ -332,15 +315,17 @@ EOF
 
 function gcloudrig_select_region {
 
-  local ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
+  local ACCELERATORREGIONS
+  ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
+
   if [ -n "$ACCELERATORREGIONS" ] ; then
     echo
-    echo "You can use http://gcping.com to find the closest region"
+    echo "You can use https://cloudharmony.com/speedtest-latency-for-google:compute to test for latency and find your closest region"
     echo
     echo "Select a region to use:"
     select REGION in $ACCELERATORREGIONS ; do
-      [ -n "$REGION" ] && gcloud config set compute/region $REGION && gcloud compute project-info add-metadata \
-    --metadata google-compute-default-region=$REGION && break
+      [ -n "$REGION" ] && gcloud config set compute/region "$REGION" --quiet && gcloud compute project-info add-metadata \
+    --metadata google-compute-default-region="$REGION" --quiet && break
     done
   else
     echo >&2
@@ -361,14 +346,16 @@ function gcloud_projects_create {
 
 function enable_required_gcloud_apis {
   # check if compute api is enabled, if not enable it
-  local COMPUTEAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=compute.googleapis.com" --quiet)
+  local COMPUTEAPI
+  COMPUTEAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=compute.googleapis.com" --quiet)
   if [ "$COMPUTEAPI" != "compute.googleapis.com" ]; then
     echo "Enabling Compute API..."
     gcloud services enable compute.googleapis.com
   fi
 
   # check if logging api is enabled, if not enable it
-  local LOGGINGAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=logging.googleapis.com" --quiet)
+  local LOGGINGAPI
+  LOGGINGAPI=$(gcloud services list --format "value(config.name)" --filter "config.name=logging.googleapis.com" --quiet)
   if [ "$LOGGINGAPI" != "logging.googleapis.com" ]; then
     echo "Enabling Logging API..."
     gcloud services enable logging.googleapis.com
@@ -431,12 +418,15 @@ function gcloudrig_get_accelerator_zones {
 function gcloudrig_create_instance_template {
   local templateName="$1" # required
   local imageFlags
-  local bootImage=$(gcloudrig_get_bootimage)
-  local preemptible=""
+  local bootImage
+  local preemptible
+
+  preemptible=""
+  bootImage=$(gcloudrig_get_bootimage)
 
   echo "Preemptible instances are cheaper to run, but only last 24hrs and can be restarted at any time."
   echo "For more info see https://cloud.google.com/compute/docs/instances/preemptible" 
-  while read -n 1 -p "Do you want to use preemptible instances? (y/n) " ; do
+  while read -r -n 1 -p "Do you want to use preemptible instances? (y/n) " ; do
     case $REPLY in
       y|Y)
         echo
@@ -458,7 +448,17 @@ function gcloudrig_create_instance_template {
     imageFlags="--image $(gcloudrig_get_bootimage)"
   fi
 
+  echo "Modifying gcloudrig-boot.ps1 variables..."
+  #shellcheck disable=SC2016
+  sed -i 's/^$GcloudrigPrefix\=.*/$GcloudrigPrefix="'"$GCLOUDRIG_PREFIX"'"/' "$DIR/gcloudrig-boot.ps1"
+  #shellcheck disable=SC2016
+  sed -i 's/^$GCPLabel\=.*/$GCPLabel="'"$GCLOUDRIG_PREFIX"'"/' "$DIR/gcloudrig-boot.ps1"
+  #shellcheck disable=SC2016
+  sed -i 's/^$GamesDiskName\=.*/$GamesDiskName="'"$GAMESDISK"'"/' "$DIR/gcloudrig-boot.ps1"
+
   echo "Creating instance template '$templateName'..."
+
+  #shellcheck disable=SC2086
   gcloud compute instance-templates create "$templateName" \
       --accelerator "type=$ACCELERATORTYPE,count=$ACCELERATORCOUNT" \
       --boot-disk-type "$BOOTTYPE" \
@@ -469,7 +469,7 @@ function gcloudrig_create_instance_template {
       --scopes "default,compute-rw" \
       --boot-disk-auto-delete \
       --no-restart-on-failure \
-      $preemptible \
+      "$preemptible" \
       --format "value(name)" \
       --metadata serial-port-logging-enable=true \
       --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
@@ -479,7 +479,8 @@ function gcloudrig_create_instance_template {
 # creates regional managed instance group and gives it the base instance template
 function gcloudrig_create_instance_group {
   local templateName
-  local bootImage="$(gcloudrig_get_bootimage)"
+  local bootImage
+  bootImage="$(gcloudrig_get_bootimage)"
 
   # if we don't have a custom boot image, assume we're in setup
   if [ -z "$bootImage" ] ; then
@@ -505,7 +506,8 @@ function gcloudrig_create_instance_group {
 function gcloudrig_update_instance_group {
 
   # new template's name
-  local newtemplate="gcloudrig-template-$(date +"%Y%m%d%H%M%S")"
+  local newtemplate
+  newtemplate="gcloudrig-template-$(date +"%Y%m%d%H%M%S")"
 
   # create new template
   gcloudrig_create_instance_template "$newtemplate"
@@ -567,13 +569,14 @@ function gcloudrig_check_quota_gpus_all_regions {
   # if key exists in array
   if [ -v "QUOTAS[GPUS_ALL_REGIONS]" ] ; then
     # gcloud --format option sometimes outputs nothing if the value is 0.0
-    if [ -z "${QUOTAS[GPUS_ALL_REGIONS]}" -o "${QUOTAS[GPUS_ALL_REGIONS]}" == "0.0" ] ; then
+    if [ -z "${QUOTAS[GPUS_ALL_REGIONS]}" ] || [ "${QUOTAS[GPUS_ALL_REGIONS]}" == "0.0" ] ; then
+      echo "GPU Quota Check: GPUS_ALL_REGIONS NOT_OK (limit: ${QUOTAS["GPUS_ALL_REGIONS"]})"
+
       cat <<EOF >&2
 
 =-=-=-=-=-=-=-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 You have to manually request a quota increase for GPUS_ALL_REGIONS
-
   https://console.cloud.google.com/iam-admin/quotas?project=${PROJECT_ID}&metric=GPUs%20(all%20regions)
 
 See this page for more info on requesting quota:
@@ -584,10 +587,10 @@ See this page for more info on requesting quota:
 EOF
       exit 1
     else
-      echo "GPUS_ALL_REGIONS quota is ${QUOTAS["GPUS_ALL_REGIONS"]}"
+      echo "GPU Quota Check: GPUS_ALL_REGIONS OK (limit: ${QUOTAS["GPUS_ALL_REGIONS"]})"
     fi
   else
-    echo "no GPUS_ALL_REGIONS quota, good to go."
+    echo "GPU Quota Check: GPUS_ALL_REGIONS OK (no limit)"
   fi
 }
 
@@ -598,7 +601,7 @@ EOF
 function gcloudrig_enable_software_setup {
   # set project level metadata that gcloudrig-boot.ps1 will check to start a
   # software install
-  echo "Enabling Gcloudrig software installer..."
+  echo "Enabling gcloudrig software installer..."
   gcloud compute project-info add-metadata --quiet \
     --metadata "gcloudrig-setup-state=new" \
     --metadata-from-file gcloudrig-setup-options=<(gcloudrig_setup_options_to_json) 
@@ -620,9 +623,11 @@ function gcloudrig_setup_options_to_json {
     value="${SETUPOPTIONS[$key]}"
     value="${value//\'}" # nuke single quotes
     value="${value//\"}" # nuke double quotes
-    if [ "$value" == "true" -o "$value" == "false" ] ; then
+    if [ "$value" == "true" ] || [ "$value" == "false" ] ; then
+      #shellcheck disable=SC2059
       optionString="$(printf "$booleanTemplate" "$key" "$value"),$optionString"
     else
+      #shellcheck disable=SC2059
       optionString="$(printf "$optionTemplate" "$key" "$value"),$optionString"
     fi
   done
@@ -630,6 +635,7 @@ function gcloudrig_setup_options_to_json {
   # trim any trailing ','
   optionString="${optionString%,}"
 
+  #shellcheck disable=SC2059
   printf "$jsonTemplate" "$optionString"
 }
 
@@ -689,9 +695,17 @@ function wait_until_instance_group_is_stable {
   fi
 }
 
+function gcloudrig_set_running_instance_zone_bootdisk {
+  INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
+  ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
+  BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
+}
+
 # scale to 1 and wait, with retries every 5 minutes
 function gcloudrig_start {
   echo "Starting gcloudrig..."
+
+  gcloudrig_update_powershell_module
 
   # scale to 1
   gcloud compute instance-groups managed resize "$INSTANCEGROUP" \
@@ -725,9 +739,7 @@ function gcloudrig_start {
   done
 
   # we have an instance!
-  INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
-  ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
-  BOOTDISK="$(gcloudrig_get_bootdisk_from_instance "$ZONE" "$INSTANCE")"
+  gcloudrig_set_running_instance_zone_bootdisk
 
   echo "To watch boot/setup progress, visit https://console.cloud.google.com/logs/viewer?project=$PROJECT_ID&advancedFilter=logName%3Dprojects%2F$PROJECT_ID%2Flogs%2Fgcloudrig-install"
 }
@@ -899,4 +911,20 @@ function gcloudrig_mount_games_disk {
     --disk "$GAMESDISK" \
     --zone "$ZONE" \
     --quiet &>/dev/null
+}
+
+
+function gcloudrig_reset_windows_password {
+  # to reset a password, we have to have a running instance
+  gcloudrig_set_running_instance_zone_bootdisk
+
+  if [ -z "$INSTANCE" ]; then
+    echo "Could not find a running instance to issue a password reset; run ./scale-up.sh to start your rig then try this command again." >&2
+    exit 1
+  fi
+
+  gcloud compute reset-windows-password "$INSTANCE" \
+    --user "$WINDOWSUSER" \
+    --zone "$ZONE" \
+    --format "table[box,title='Windows Credentials'](ip_address,username,password)"
 }

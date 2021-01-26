@@ -1,10 +1,22 @@
-# gcloudrig-boot.ps1
-#
-
-# these all need to match globals.sh
+##############################################################
+###                   _             _     _                ###
+###           __ _ __| |___ _  _ __| |_ _(_)__ _           ###
+###          / _` / _| / _ \ || / _` | '_| / _` |          ###
+###          \__, \__|_\___/\_,_\__,_|_| |_\__, |          ###
+###          |___/                         |___/           ###
+###                                                        ###
+###  gcloudrig-boot.ps1                                    ###
+###                                                        ###
+### This script is executed everytime your rig boots up    ###
+### It's responsible for handling your games disk, and     ###
+### kicking off inital software setup                      ###
+###                                                        ###
+##############################################################
+## NOTE - these variables are automatically set by setup.sh ##
 $GcloudrigPrefix="gcloudrig"
-$GCPLabel="$($GcloudrigPrefix)"
-$GamesDiskName="$($GcloudrigPrefix)-games"
+$GCPLabel="gcloudrig"
+$GamesDiskName="gcloudrig-games"
+##############################################################
 
 $SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
 
