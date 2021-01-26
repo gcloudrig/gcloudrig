@@ -10,10 +10,11 @@ DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 # load globals
 # shellcheck source=globals.sh
 source "$DIR/globals.sh"
+
 init_setup # init_gcloudrig;
 
 echo
-while read -n 1 -p "Would you like to automatically install some things? [y/n] " ; do
+while read -r -n 1 -p "Would you like to automatically install some things? [y/n] " ; do
   case $REPLY in
     y|Y)
       echo
