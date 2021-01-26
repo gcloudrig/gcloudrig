@@ -26,7 +26,8 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-source "globals.sh"
+pushd "$DIR" || exit
+source "globals.sh"; popd
 ##############################################################
 
 init_setup
