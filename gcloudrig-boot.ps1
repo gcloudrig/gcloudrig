@@ -13,9 +13,9 @@
 ###                                                        ###
 ##############################################################
 ## NOTE - these variables are automatically set by setup.sh ##
-$GcloudrigPrefix="gcloudrig-dev"
-$GCPLabel="gcloudrig-dev"s
-$GamesDiskName="gcloudrig-dev-games"
+$GcloudrigPrefix="gcloudrig"
+$GCPLabel="gcloudrig"
+$GamesDiskName="gcloudrig-games"
 ##############################################################
 
 $SetupScriptUrlAttribute="gcloudrig-setup-script-gcs-url"
