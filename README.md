@@ -45,7 +45,7 @@ Note: you will require a Google Cloud project with an active billing account to 
    Created [gcloudrig].
    Activated [gcloudrig].
 
-   You can use https://cloudpingtest.com/gcp to find the closest region
+   You can use https://cloudharmony.com/speedtest-latency-for-google:compute to test for latency and find your closest region.
    
    Select a region to use:
    1) asia-southeast1          5) us-central1
