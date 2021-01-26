@@ -29,6 +29,10 @@ You'll also be charged for the following while your rig is running and at rest:
 - Games Disk storage (billed at [Cloud Storage](https://cloud.google.com/storage/pricing#storage-pricing) rates)
 
 *Cloud responsibly. These scripts are provided as-is, with minimal support. While they're designed to minimise costs at-rest, things may not always go to plan.  It's recommended to use a dedicated GCP project and/or billing account with billing alerts to avoid any nasty suprises.*
+<<<<<<< HEAD
+=======
+
+>>>>>>> afc08a552faa657d00830ff31040a954217c7e9f
 
 ## Setup
 -  Create a new GCP project
