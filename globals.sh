@@ -25,7 +25,7 @@ DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 # emergency debug
 set -e; [ -n "$GCLOUDRIG_DEBUG" ] && set -x
 pushd "$DIR" || exit
-source "globals.sh"; popd
+source "config.sh"; popd
 ##############################################################
 
 ########
