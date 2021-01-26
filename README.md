@@ -1,7 +1,3 @@
-[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/putty182/gcloudrig)
-
-[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/putty182/gcloudrig)
-
 # gcloudrig <img alt="Logo" src="https://cdn.pixabay.com/photo/2016/10/30/23/05/controller-1784573_1280.png" width="40" height="40" />
 
 A collection of bash scripts to help create and maintain a cloud gaming rig in Google Cloud Platfom, on the cheap.
@@ -152,9 +148,9 @@ $ ./destroy.sh
 $ ./setup.sh
 ````
 
-## Disk Maintenance
-
-TODO
-
 ## Travelling?
 gcloudrig keeps your rig as a boot image and disk snapshot in the same GCE region. To move your rig to a different part of the world, just run `./change-region.sh` to change your default region, then run `./scale-up.sh`.  Restoring snapshots in a different region may incurr [network costs](https://cloud.google.com/compute/docs/disks/create-snapshots#network_costs), so be careful!
+
+## Contributing
+
+[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/putty182/gcloudrig)
