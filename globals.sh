@@ -1,43 +1,9 @@
 #!/usr/bin/env bash
 
-# what gpu and how many? see https://cloud.google.com/compute/docs/gpus
-ACCELERATORTYPE="nvidia-tesla-p4-vws"
-ACCELERATORCOUNT="1"
-
-# instance and boot disk type?
-INSTANCETYPE="n1-standard-8"
-BOOTTYPE="pd-ssd"
-
-# base image?
-IMAGEBASEFAMILY="windows-2019"
-IMAGEBASEPROJECT="windows-cloud"
-
-# various resource and label names
-GCLOUDRIG_PREFIX="gcloudrig"
-GCRLABEL="${GCLOUDRIG_PREFIX}"                   # also set in gcloudrig-boot.ps1
-GAMESDISK="${GCLOUDRIG_PREFIX}-games"            # also set in gcloudrig-boot.ps1
-IMAGEFAMILY="${GCLOUDRIG_PREFIX}"
-INSTANCEGROUP="${GCLOUDRIG_PREFIX}-group"
-INSTANCENAME="${GCLOUDRIG_PREFIX}"
-SETUPTEMPLATE="${GCLOUDRIG_PREFIX}-setup-template"
-CONFIGURATION="${GCLOUDRIG_PREFIX}"
-WINDOWSUSER="gcloudrig"
-
-# other globals; overrides may be ignored
-REGION=""
-PROJECT_ID=""
-ZONES=""
-GCSBUCKET=""
-
-declare -A SETUPOPTIONS
-SETUPOPTIONS[ZeroTierNetwork]=""
-SETUPOPTIONS[VideoMode]="1920x1080"
-SETUPOPTIONS[DisplayScaling]=""
-SETUPOPTIONS[InstallSteam]="false"
-SETUPOPTIONS[InstallBattlenet]="false"
-SETUPOPTIONS[InstallSSH]="false"
-SETUPOPTIONS[InstallGoogleChrome]="false"
-SETUPOPTIONS[InstallFirefox]="false"
+# load config
+DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+# shellcheck source=config.sh
+source "$DIR/config.sh"
 
 ########
 # INIT #
@@ -457,6 +423,14 @@ function gcloudrig_create_instance_template {
   else
     imageFlags="--image $(gcloudrig_get_bootimage)"
   fi
+
+  echo "Modifying gcloudrig-boot.ps1 variables..."
+  #shellcheck disable=SC2016
+  sed -i 's/^$GcloudrigPrefix\=.*/$GcloudrigPrefix="'"$GCLOUDRIG_PREFIX"'"/' "$DIR/gcloudrig-boot.ps1"
+  #shellcheck disable=SC2016
+  sed -i 's/^$GCPLabel\=.*/$GCPLabel="'"$GCLOUDRIG_PREFIX"'"/' "$DIR/gcloudrig-boot.ps1"
+  #shellcheck disable=SC2016
+  sed -i 's/^$GamesDiskName\=.*/$GamesDiskName="'"$GAMESDISK"'"/' "$DIR/gcloudrig-boot.ps1"
 
   echo "Creating instance template '$templateName'..."
   gcloud compute instance-templates create "$templateName" \
