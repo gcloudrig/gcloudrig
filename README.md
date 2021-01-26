@@ -5,27 +5,26 @@ A collection of bash scripts to help create and maintain a cloud gaming rig in G
 ### Quickstart
 [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/compute/instances?cloudshell_git_repo=https://github.com/putty182/gcloudrig&cloudshell_print=QUICKSTART.md)
 
-*Note: you will require a Google Cloud project with an active billing account and GPU quota.*
-
 ### Prerequisites
-You'll need a working bash shell with the [gcloud](https://cloud.google.com/sdk/install) command.  
--  Google's [Cloud Shell](https://cloud.google.com/shell) will do just fine
+- A Google Cloud project with an active billing account and [GPU Quota](https://cloud.google.com/compute/quotas#requesting_additional_quota).
+- A working bash shell with the [gcloud](https://cloud.google.com/sdk/install) command.  
+   - Google's [Cloud Shell](https://cloud.google.com/shell) will do just fine
    
-It's also recommended to install the following on your local device that you'll be streaming to:
--  [Parsec](https://parsecgaming.com/)
--  [ZeroTier](https://zerotier.com/)
--  a VNC client (e.g. [TightVNC](https://www.tightvnc.com/)
+It's also recommended to install the following on your local device (PC, Mac, Android, etc) that you'll be streaming to :
+-  [Parsec](https://parsecgaming.com/) for low-latency streaming
+-  [ZeroTier](https://zerotier.com/) for secure networking
+-  a VNC client (e.g. [TightVNC](https://www.tightvnc.com/)) for backup access
 
 ### Specs & Costs
-Unless you've changed the defaults, you'll be charged for the following resources while your rig is running:
--  8 vCPUs, 30 GB Memory ([n1-standard-8](https://cloud.google.com/compute/all-pricing#n1_standard_machine_types))
--  NVIDIA® T4 Virtual Workstation ([nvidia-tesla-t4-vws](https://cloud.google.com/compute/gpus-pricing#gpus))
--  Boot Disk:  50GB SSD ([pd-ssd](https://cloud.google.com/compute/all-pricing#persistentdisk))
--  Games Disk: 500GB Storage ([pd-standard](https://cloud.google.com/compute/all-pricing#persistentdisk))
--  Windows Server 2019 ([windows-2019](https://cloud.google.com/compute/all-pricing#windows_server_pricing))
+You'll be charged for the following resources while your rig is running:
+-  CPU/RAM: 8 vCPUs, 30 GB Memory ([n1-standard-8](https://cloud.google.com/compute/all-pricing#n1_standard_machine_types))
+-  GPU: NVIDIA® T4 Virtual Workstation ([nvidia-tesla-t4-vws](https://cloud.google.com/compute/gpus-pricing#gpus))
+-  OS: Windows Server 2019 ([windows-2019](https://cloud.google.com/compute/all-pricing#windows_server_pricing))
+-  Boot Disk: 50GB SSD persistent disk ([pd-ssd](https://cloud.google.com/compute/all-pricing#persistentdisk))
+-  Games Disk: 500GB standard persistent disk ([pd-standard](https://cloud.google.com/compute/all-pricing#persistentdisk))
 -  Network Costs ([egress](https://cloud.google.com/vpc/network-pricing#internet_egress))
 
-While your rig is at rest, you should only be charged for disk storage:
+You'll also be charged for the following while your rig is running and at rest:
 - Boot Disk storage (billed at [Custom Image](https://cloud.google.com/compute/all-pricing#imagestorage) rates)
 - Games Disk storage (billed at [Cloud Storage](https://cloud.google.com/storage/pricing#storage-pricing) rates)
 
@@ -172,5 +171,6 @@ The easiest way to browse and download the drivers is using the Storage Browser 
 gcloudrig keeps your rig as a boot image and disk snapshot in the same GCE region. To move your rig to a different part of the world, just run `./change-region.sh` to change your default region, then run `./scale-up.sh`.  Restoring snapshots in a different region may incurr [network costs](https://cloud.google.com/compute/docs/disks/create-snapshots#network_costs), so be careful!
 
 ## Contributing
-
 [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/putty182/gcloudrig/tree/develop)
+
+Pull requests against the [develop](https://github.com/putty182/gcloudrig/tree/develop) branch are welcome!
