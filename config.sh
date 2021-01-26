@@ -29,7 +29,7 @@ IMAGEBASEFAMILY="windows-2019"
 IMAGEBASEPROJECT="windows-cloud"
 
 # Various resource and label names
-GCLOUDRIG_PREFIX="gcloudrig-dev"                     # note: also used in gcloudrig-boot.ps1
+GCLOUDRIG_PREFIX="gcloudrig"                     # note: also used in gcloudrig-boot.ps1
 GCRLABEL="${GCLOUDRIG_PREFIX}"                   # note: also used in gcloudrig-boot.ps1
 GAMESDISK="${GCLOUDRIG_PREFIX}-games"            # note: also used in gcloudrig-boot.ps1
 IMAGEFAMILY="${GCLOUDRIG_PREFIX}"
