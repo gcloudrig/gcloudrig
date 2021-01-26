@@ -13,11 +13,7 @@ source "$DIR/globals.sh"
 init_gcloudrig;
 
 INSTANCE="$(gcloudrig_get_instance_from_group "$INSTANCEGROUP")"
-
 ZONE="$(gcloudrig_get_instance_zone_from_group "$INSTANCEGROUP")"
 
 # set/reset windows credentials
-gcloud compute reset-windows-password "$INSTANCE" \
-	--user "$WINDOWSUSER" \
-	--zone "$ZONE" \
-	--format "table[box,title='Windows Credentials'](ip_address,username,password)"
+gcloudrig_reset_windows_password

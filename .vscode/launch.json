@@ -3,13 +3,14 @@
   // Hover to view descriptions of existing attributes.
   "version": "0.2.0",
   "configurations": [
-      {
-          "type": "bashdb",
-          "request": "launch",
-          "name": "Bash-Debug (type in script name)",
-          "cwd": "${workspaceFolder}",
-          "program": "${command:AskForScriptName}",
-          "args": []
-      }
+    {
+      "type": "bashdb",
+      "request": "launch",
+      "name": "Bash-Debug (hardcoded script name)",
+      "terminalKind": "integrated",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/setup.sh",
+      "args": [],
+    }
   ]
 }
