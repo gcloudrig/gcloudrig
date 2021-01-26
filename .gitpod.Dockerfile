@@ -1,6 +1,7 @@
 FROM gitpod/workspace-full
 
 # light-weight install latest cloud-sdk package
+USER root
 ENV PATH "$PATH:/opt/google-cloud-sdk/bin/"
 RUN apt-get -qqy update && apt-get install -qqy \
         curl \
@@ -23,3 +24,6 @@ RUN apt-get install -qqy \
         gcc \
         python3-pip
 RUN pip3 install pyopenssl
+
+# and we're back
+USER gitpod
