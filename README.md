@@ -1,7 +1,3 @@
-[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/putty182/gcloudrig)
-
-[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/putty182/gcloudrig)
-
 # gcloudrig <img alt="Logo" src="https://cdn.pixabay.com/photo/2016/10/30/23/05/controller-1784573_1280.png" width="40" height="40" />
 
 A collection of bash scripts to help create and maintain a cloud gaming rig in Google Cloud Platfom, on the cheap.
@@ -153,28 +149,9 @@ $ ./destroy.sh
 $ ./setup.sh
 ````
 
-## Maintainence and FAQ
-
-### What happens when I stop my rig?
-During the scale-down script, your boot disk (C:\) is stored away as a [custom image](https://cloud.google.com/compute/disks-image-pricing#imagestorage), and your games disk (G:\) is stored away as a [persistent disk snapshot](https://cloud.google.com/compute/docs/disks/snapshots).  These are the only two at-rest costs that should be associated with your rig.
-
-### Can I resize my disks?
-If you need more space or faster disk performance, you can always [increase the size of your disks](https://cloud.google.com/compute/docs/disks/add-persistent-disk#resize_pd) while your rig is running.
-
-It's recommended to keep usage on your boot disk (C:\) as small as possible, since at-rest it's stored as a custom image which has higher pricing than the snapshots used to store the games disk (G:\).
-
-To take advantage of the (performance boost)[https://cloud.google.com/compute/docs/disks/performance] from having a larger disk but limit your actual disk usage for at-rest costs, after resize simply shrink the volume back down in Windows Disk Manager.
-
-### The maximum resolution is 1366x768 or 1280×1024 or my framerate drops to 15fps after 20 minutes
-These are all symptoms of NVIDIA GRID / Quadro Licence failures;  the best suggestion is to reinstall the [GRID® drivers for virtual workstations](https://cloud.google.com/compute/docs/gpus/install-grid-drivers#grid-driver-windows) and restart your rig.
-
-### Where do I find the licenced NVIDIA GRID Drivers?
-The easiest way to browse and download the drivers is using the Storage Browser in Google Cloud Console: https://console.cloud.google.com/storage/browser/nvidia-drivers-us-public/GRID
-
 ## Travelling?
 gcloudrig keeps your rig as a boot image and disk snapshot in the same GCE region. To move your rig to a different part of the world, just run `./change-region.sh` to change your default region, then run `./scale-up.sh`.  Restoring snapshots in a different region may incurr [network costs](https://cloud.google.com/compute/docs/disks/create-snapshots#network_costs), so be careful!
 
 ## Contributing
-[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/putty182/gcloudrig/tree/develop)
 
-Pull requests against the [develop](https://github.com/putty182/gcloudrig/tree/develop) branch are welcome!
+[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/putty182/gcloudrig)
