@@ -5,30 +5,32 @@ A collection of bash scripts to help create and maintain a cloud gaming rig in G
 ### Quickstart
 [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/compute/instances?cloudshell_git_repo=https://github.com/putty182/gcloudrig&cloudshell_print=QUICKSTART.md)
 
+*Note: you will require a Google Cloud project with an active billing account and GPU quota.*
+
 ### Prerequisites
-- A Google Cloud project with an active billing account and [GPU Quota](https://cloud.google.com/compute/quotas#requesting_additional_quota).
-- A working bash shell with the [gcloud](https://cloud.google.com/sdk/install) command.  
-   - Google's [Cloud Shell](https://cloud.google.com/shell) will do just fine
+You'll need a working bash shell with the [gcloud](https://cloud.google.com/sdk/install) command.  
+-  Google's [Cloud Shell](https://cloud.google.com/shell) will do just fine
    
-It's also recommended to install the following on your local device (PC, Mac, Android, etc) that you'll be streaming to :
--  [Parsec](https://parsecgaming.com/) for low-latency streaming
--  [ZeroTier](https://zerotier.com/) for secure networking
--  a VNC client (e.g. [TightVNC](https://www.tightvnc.com/)) for backup access
+It's also recommended to install the following on your local device that you'll be streaming to:
+-  [Parsec](https://parsecgaming.com/)
+-  [ZeroTier](https://zerotier.com/)
+-  a VNC client (e.g. [TightVNC](https://www.tightvnc.com/)
 
 ### Specs & Costs
-You'll be charged for the following resources while your rig is running:
--  CPU/RAM: 8 vCPUs, 30 GB Memory ([n1-standard-8](https://cloud.google.com/compute/all-pricing#n1_standard_machine_types))
--  GPU: NVIDIA® T4 Virtual Workstation ([nvidia-tesla-t4-vws](https://cloud.google.com/compute/gpus-pricing#gpus))
--  OS: Windows Server 2019 ([windows-2019](https://cloud.google.com/compute/all-pricing#windows_server_pricing))
--  Boot Disk: 50GB SSD persistent disk ([pd-ssd](https://cloud.google.com/compute/all-pricing#persistentdisk))
--  Games Disk: 500GB standard persistent disk ([pd-standard](https://cloud.google.com/compute/all-pricing#persistentdisk))
+Unless you've changed the defaults, you'll be charged for the following resources while your rig is running:
+-  8 vCPUs, 30 GB Memory ([n1-standard-8](https://cloud.google.com/compute/all-pricing#n1_standard_machine_types))
+-  NVIDIA® T4 Virtual Workstation ([nvidia-tesla-t4-vws](https://cloud.google.com/compute/gpus-pricing#gpus))
+-  Boot Disk:  50GB SSD ([pd-ssd](https://cloud.google.com/compute/all-pricing#persistentdisk))
+-  Games Disk: 500GB Storage ([pd-standard](https://cloud.google.com/compute/all-pricing#persistentdisk))
+-  Windows Server 2019 ([windows-2019](https://cloud.google.com/compute/all-pricing#windows_server_pricing))
 -  Network Costs ([egress](https://cloud.google.com/vpc/network-pricing#internet_egress))
 
-You'll also be charged for the following while your rig is running and at rest:
+While your rig is at rest, you should only be charged for disk storage:
 - Boot Disk storage (billed at [Custom Image](https://cloud.google.com/compute/all-pricing#imagestorage) rates)
 - Games Disk storage (billed at [Cloud Storage](https://cloud.google.com/storage/pricing#storage-pricing) rates)
 
 *Cloud responsibly. These scripts are provided as-is, with minimal support. While they're designed to minimise costs at-rest, things may not always go to plan.  It's recommended to use a dedicated GCP project and/or billing account with billing alerts to avoid any nasty suprises.*
+
 
 ## Setup
 -  Create a new GCP project
@@ -147,6 +149,24 @@ If you need a nuclear option, delete everything and start over with these comman
 $ ./destroy.sh
 $ ./setup.sh
 ````
+
+## Maintainence and FAQ
+
+### What happens when I stop my rig?
+During the scale-down script, your boot disk (C:\) is stored away as a [custom image](https://cloud.google.com/compute/disks-image-pricing#imagestorage), and your games disk (G:\) is stored away as a [persistent disk snapshot](https://cloud.google.com/compute/docs/disks/snapshots).  These are the only two at-rest costs that should be associated with your rig.
+
+### Can I resize my disks?
+If you need more space or faster disk performance, you can always [increase the size of your disks](https://cloud.google.com/compute/docs/disks/add-persistent-disk#resize_pd) while your rig is running.
+
+It's recommended to keep usage on your boot disk (C:\) as small as possible, since at-rest it's stored as a custom image which has higher pricing than the snapshots used to store the games disk (G:\).
+
+To take advantage of the (performance boost)[https://cloud.google.com/compute/docs/disks/performance] from having a larger disk but limit your actual disk usage for at-rest costs, after resize simply shrink the volume back down in Windows Disk Manager.
+
+### The maximum resolution is 1366x768 or 1280×1024 or my framerate drops to 15fps after 20 minutes
+These are all symptoms of NVIDIA GRID / Quadro Licence failures;  the best suggestion is to reinstall the [GRID® drivers for virtual workstations](https://cloud.google.com/compute/docs/gpus/install-grid-drivers#grid-driver-windows) and restart your rig.
+
+### Where do I find the licenced NVIDIA GRID Drivers?
+The easiest way to browse and download the drivers is using the Storage Browser in Google Cloud Console: https://console.cloud.google.com/storage/browser/nvidia-drivers-us-public/GRID
 
 ## Travelling?
 gcloudrig keeps your rig as a boot image and disk snapshot in the same GCE region. To move your rig to a different part of the world, just run `./change-region.sh` to change your default region, then run `./scale-up.sh`.  Restoring snapshots in a different region may incurr [network costs](https://cloud.google.com/compute/docs/disks/create-snapshots#network_costs), so be careful!
