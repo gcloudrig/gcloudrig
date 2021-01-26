@@ -326,7 +326,7 @@ function gcloudrig_select_region {
   local ACCELERATORREGIONS="$(gcloudrig_get_accelerator_zones | sed -ne 's/-[a-z]$//p' | sort -u)"
   if [ -n "$ACCELERATORREGIONS" ] ; then
     echo
-    echo "You can use https://cloudpingtest.com/gcp to find the closest region"
+    echo "You can use https://cloudharmony.com/speedtest-latency-for-google:compute to test for latency and find your closest region"
     echo
     echo "Select a region to use:"
     select REGION in $ACCELERATORREGIONS ; do
