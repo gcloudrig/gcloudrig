@@ -24,7 +24,7 @@ DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 # emergency debug
 set -e; [ -n "$GCLOUDRIG_DEBUG" ] && set -x
-source "$DIR/config.sh"
+source "$DIR/config.sh"; popd
 ##############################################################
 
 ########
@@ -666,7 +666,7 @@ function gcloudrig_update_powershell_module {
 
 function wait_until_instance_group_is_stable {
   set +e
-  timeout 300s gcloud compute instance-groups managed wait-until --stable "$INSTANCEGROUP" \
+  timeout 120s gcloud compute instance-groups managed wait-until --stable "$INSTANCEGROUP" \
   	--region "$REGION" \
     --quiet
 
