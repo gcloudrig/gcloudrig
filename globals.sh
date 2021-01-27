@@ -419,27 +419,13 @@ function gcloudrig_create_instance_template {
   local templateName="$1" # required
   local imageFlags
   local bootImage
-  local preemptible
+  local preemptibleFlags
 
-  preemptible=""
+  if [ -n "$PREEMPTIBLE" ]; then
+    preemptibleFlags="--preemptible"
+  fi
+
   bootImage=$(gcloudrig_get_bootimage)
-
-  echo "Preemptible instances are cheaper to run, but only last 24hrs and can be restarted at any time."
-  echo "For more info see https://cloud.google.com/compute/docs/instances/preemptible" 
-  while read -r -n 1 -p "Do you want to use preemptible instances? (y/n) " ; do
-    case $REPLY in
-      y|Y)
-        echo
-        preemptible="--preemptible"
-        break
-        ;;
-      n|N)
-        echo
-        preemptible=""
-        break
-        ;;
-    esac
-  done
 
   # if the templateName is SETUPTEMPLATE or we still don't have a custom boot image, assume we're in setup
   if [ "$templateName" == "$SETUPTEMPLATE" ] || [ -z "$bootImage" ]; then
@@ -469,7 +455,7 @@ function gcloudrig_create_instance_template {
       --scopes "default,compute-rw" \
       --boot-disk-auto-delete \
       --no-restart-on-failure \
-      "$preemptible" \
+      "$preemptibleFlags" \
       --format "value(name)" \
       --metadata serial-port-logging-enable=true \
       --metadata-from-file windows-startup-script-ps1=<(cat "$DIR/gcloudrig-boot.ps1") \
