@@ -23,8 +23,7 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-pushd "$DIR" || exit
-source "globals.sh"; popd
+source "$DIR/globals.sh"
 ##############################################################
 
 init_gcloudrig;
