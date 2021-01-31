@@ -56,7 +56,7 @@ function init_gcloudrig {
   # if we don't have a project id or region yet
   if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
     # check if we're running in cloudshell, since it likes to eat gcloud configs
-    GCE_ATTRIBUTE_BASE_SERVER_URL="$(curl -H "Metadata-Flavor: Google" metadata/computeMetadata/v1/instance/attributes/base-server-url)"
+    GCE_ATTRIBUTE_BASE_SERVER_URL="$(curl -s -H "Metadata-Flavor: Google" metadata/computeMetadata/v1/instance/attributes/base-server-url || echo '')"
     if [ "$GCE_ATTRIBUTE_BASE_SERVER_URL" == "https://ssh.cloud.google.com" ]; then
       gcloudrig_config_setup
     fi
@@ -515,20 +515,46 @@ function gcloudrig_update_instance_group {
 
 # deletes existing instance group and all templates
 function gcloudrig_delete_instance_group {
-  if [ -n "$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(name)" --quiet)" ]; then
+# check for running instances
+  groupsize=$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(size)" --quiet || echo "0")
+  deleteok="N"
+  if [ "$groupsize" -gt 0 ]; then
+    echo
+    echo "WARNING: The next step will recreate the instance group, but there appears to already be an instance running.\n" \
+         "This action will delete the instance, potentially causing data loss for your rig (since it's last boot)"
+    echo
+    while read -r -n 1 -p "Do you want to recreate the instance group? [y/n] " ; do
+      case $REPLY in
+        y|Y)
+          echo
+            deleteok="Y"
+          break
+          ;;
+        n|N)
+          echo
+            deleteok="N"
+          break
+          ;;
+      esac
+    done
+  else
+    deleteok="Y"
+  fi
+
+  if [ "$deleteok" = "Y" ] && [ -n "$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(name)" --quiet)" ]; then
     gcloud compute instance-groups managed delete "$INSTANCEGROUP" \
       --region "$REGION" \
       --quiet
-  fi
 
-  # tidy up - delete all other templates
-  local templates=()
-  mapfile -t templates < <(gcloud compute instance-templates list \
-    --format "value(name)" \
-    --filter "properties.labels.$GCRLABEL=true")
-  for template in "${templates[@]}"; do
-    gcloud compute instance-templates delete "$template" --quiet || echo -n
-  done
+    # tidy up - delete all other templates
+    local templates=()
+    mapfile -t templates < <(gcloud compute instance-templates list \
+      --format "value(name)" \
+      --filter "properties.labels.$GCRLABEL=true")
+    for template in "${templates[@]}"; do
+      gcloud compute instance-templates delete "$template" --quiet || echo -n
+    done
+  fi
 }
 
 ##################
