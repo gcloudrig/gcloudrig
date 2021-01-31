@@ -33,9 +33,9 @@ init_setup
 
 # create/recreate instance group
 gcloudrig_delete_instance_group
-gcloudrig_create_instance_group
+gcloudrig_create_instance_group || echo
 
-echo
+# TODO: bypass this if setup is complete (hard to tell since the flag is on the disk itself)
 while read -r -n 1 -p "Would you like gcloudrig to automatically install (or re-install) some things? [y/n] " ; do
   case $REPLY in
     y|Y)
