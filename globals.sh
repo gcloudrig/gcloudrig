@@ -520,8 +520,8 @@ function gcloudrig_delete_instance_group {
   deleteok="N"
   if [ "$groupsize" -gt 0 ]; then
     echo
-    echo "WARNING: The next step will recreate the instance group, but there appears to already be an instance running.\n" \
-         "This action will delete the instance, potentially causing data loss for your rig (since it's last boot)"
+    echo "WARNING: The next step will recreate the instance group, but there appears to already be an instance running."
+    echo "This action will delete the instance, potentially causing data loss for your rig (since it's last boot)"
     echo
     while read -r -n 1 -p "Do you want to recreate the instance group? [y/n] " ; do
       case $REPLY in
