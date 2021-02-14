@@ -24,6 +24,7 @@ DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 # emergency debug
 set -e; [ -n "$GCLOUDRIG_DEBUG" ] && set -x
+# shellcheck source=./config.sh
 source "$DIR/config.sh"
 ##############################################################
 
