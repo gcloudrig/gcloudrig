@@ -21,8 +21,7 @@ ACCELERATORTYPE="nvidia-tesla-t4-vws"
 ACCELERATORCOUNT="1"
 
 # GCP Instance and Boot Disk type
-# 12 vCPU; 32 GB RAM
-INSTANCETYPE="n1-custom-12-32768"
+INSTANCETYPE="n1-standard-8"
 BOOTTYPE="pd-ssd"
 
 # do we make preemptible instances?
