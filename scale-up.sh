@@ -22,6 +22,7 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+# shellcheck source=./globals.sh
 source "$DIR/globals.sh"
 ##############################################################
 
