@@ -100,9 +100,13 @@ function init_common {
   GCSBUCKET="gs://$PROJECT_ID"
   local groupsize=0
 
-  # get a comma separated list of zones with accelerators in the current region
-  ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
-  ZONES="${ZONES//[[:space:]]/,}"
+  # if we don't already have them, get a comma separated list of zones
+  # that have the accelerator we want in the current region
+  if [ -z "$ZONES" ] ; then 
+    ZONES="$(gcloudrig_get_accelerator_zones "$REGION")"
+    ZONES="${ZONES//[[:space:]]/,}"
+  fi
+
   if [ -z "$ZONES" ] ; then
     gcloud config unset compute/zone --quiet
     gcloud config unset compute/region --quiet
@@ -403,11 +407,17 @@ function gcloudrig_get_bootimage {
 }
 
 # Get zones with accelerators in region $1
-# if $1 is not specified, all regions
 function gcloudrig_get_accelerator_zones {
+  # if $1 is not specified, * for all regions
   local region="${1:-*}"
+  local zones=""
+
+  # list of valid zones
+  zones=$(gcloud compute zones list --filter "region:$region" --format "value(name)")
+
+  # list of valid zones that have the accelerator we want
   gcloud compute accelerator-types list \
-    --filter "zone:$region AND name=$ACCELERATORTYPE" \
+    --filter "zone:($zones) name=$ACCELERATORTYPE" \
     --format "value(zone)"
 }
 
