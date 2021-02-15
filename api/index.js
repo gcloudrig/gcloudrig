@@ -17,6 +17,7 @@ const spawn = require("child_process").spawn;
 
 const PORT = process.env.PORT;
 const HOST = "0.0.0.0";
+var processingCommand = false;
 
 io.use(
   socketioJwt.authorize({
@@ -33,9 +34,15 @@ var corsOptions = {
 };
 app.use(cors(corsOptions));
 
+app.use(express.static('public'));
+
 app.get("/", async (req, res) => {
-  //return user page
+  res.render('index');
 });
+
+app.get("/login", async (req, res) => {
+    res.render('login');
+  });
 
 app.post("/v1/api/login", (req, res) => {
   const { username, password } = req.body;
@@ -65,6 +72,9 @@ app.post(
   "/v1/api/up",
   expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
   (req, res) => {
+    if (processingCommand) {
+    res.status(200).send('command processing...');
+  } 
     runCommand("./test.sh");
     res.sendStatus(200);
   }
@@ -122,14 +132,20 @@ app.use(function (err, req, res, next) {
 });
 
 function runCommand(command) {
+  processingCommand = true;
   var myProcess = spawn(command);
   myProcess.stdout.setEncoding("utf-8");
   myProcess.stdout.on("data", function (data) {
     io.sockets.emit("process_data", data);
   });
+
   myProcess.stderr.setEncoding("utf-8");
-  myProcess.stderr.on("data", function (data) {
+  myProcess.stderr.on("error", function (data) {
     io.sockets.emit("process_data", data);
+  });
+
+  myProcess.on("exit", () => {
+    processingCommand = false;
   });
 }
 
