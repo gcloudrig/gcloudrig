@@ -1,0 +1,25 @@
+<div class="text-center">
+  <main class="form-signin">
+    <img class="mb-4" src="assets/img/cloud.png" alt="" height="57" />
+    <h1 class="h3 mb-3 fw-normal">Please sign in</h1>
+    <input
+    #email
+      type="email"
+      id="inputEmail"
+      class="form-control"
+      placeholder="Email address"
+      required
+      autofocus
+    />
+    <input
+        #password
+      type="password"
+      id="inputPassword"
+      class="form-control"
+      placeholder="Password"
+      required
+    />
+    <button class="w-100 btn btn-lg btn-primary" (click)="login(email.value, password.value)">Sign in</button>
+    <p class="mt-5 mb-3 text-muted">&copy; 2017–2021</p>
+  </main>
+</div>
