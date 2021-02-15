@@ -1,15 +1,22 @@
 const express = require("express");
-const cors = require("cors");
-const spawn = require("child_process").spawn;
-const io = require("socket.io")();
+const app = express();
+const server = require("http").Server(app);
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+
 const socketioJwt = require("socketio-jwt");
 const expressJwt = require("express-jwt");
 const jwt = require("jsonwebtoken");
 
+const cors = require("cors");
+const spawn = require("child_process").spawn;
+
 const PORT = process.env.PORT;
 const HOST = "0.0.0.0";
-
-const app = express();
 
 io.use(
   socketioJwt.authorize({
@@ -30,7 +37,7 @@ app.get("/", async (req, res) => {
   //return user page
 });
 
-app.post("/login", (req, res) => {
+app.post("/v1/api/login", (req, res) => {
   const { username, password } = req.body;
   console.log(process.env.API_USERNAME);
 
@@ -58,6 +65,7 @@ app.post(
   "/v1/api/up",
   expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
   (req, res) => {
+    runCommand("./test.sh");
     res.sendStatus(200);
   }
 );
@@ -91,21 +99,21 @@ app.post(
 
 //get status
 app.post(
-    "/v1/api/status",
-    expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
-    (req, res) => {
-      res.sendStatus(200);
-    }
-  );
+  "/v1/api/status",
+  expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
+  (req, res) => {
+    res.sendStatus(200);
+  }
+);
 
-  //nuke and run
+//nuke and run
 app.post(
-    "/v1/api/destroy",
-    expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
-    (req, res) => {
-      res.sendStatus(200);
-    }
-  );
+  "/v1/api/destroy",
+  expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
+  (req, res) => {
+    res.sendStatus(200);
+  }
+);
 
 app.use(function (err, req, res, next) {
   if (err.name === "UnauthorizedError") {
@@ -117,13 +125,13 @@ function runCommand(command) {
   var myProcess = spawn(command);
   myProcess.stdout.setEncoding("utf-8");
   myProcess.stdout.on("data", function (data) {
-    socket.emit("process_data", data);
+    io.sockets.emit("process_data", data);
   });
   myProcess.stderr.setEncoding("utf-8");
   myProcess.stderr.on("data", function (data) {
-    socket.emit("process_data", data);
+    io.sockets.emit("process_data", data);
   });
 }
 
-app.listen(PORT, HOST);
+server.listen(PORT, HOST);
 console.log(`Running on http://${HOST}:${PORT}`);
