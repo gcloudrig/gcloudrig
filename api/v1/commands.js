@@ -19,7 +19,7 @@ router.post(
   expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
   isCommandRunning,
   (req, res) => {
-    runCommand("ls", req.app.get('socketio'));
+    runCommand("../../test.sh", req.app.get('socketio'));
     res.sendStatus(200);
   }
 );
@@ -86,15 +86,18 @@ function runCommand(command, io) {
   myProcess.stdout.setEncoding("utf-8");
   myProcess.stdout.on("data", function (data) {
     io.sockets.emit("process_data", data);
+    console.log(data);
   });
 
   myProcess.stderr.setEncoding("utf-8");
   myProcess.stderr.on("error", function (data) {
     io.sockets.emit("process_data", data);
+    console.log(data);
   });
 
   myProcess.on("exit", () => {
     processingCommand = false;
+    console.log('command complete');
   });
 }
 
