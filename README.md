@@ -13,7 +13,7 @@ A collection of bash scripts to help create and maintain a cloud gaming rig in G
 It's also recommended to install the following on your local device (PC, Mac, Android, etc) that you'll be streaming to :
 -  [Parsec](https://parsecgaming.com/) for low-latency streaming
 -  [ZeroTier](https://zerotier.com/) for secure networking
--  a VNC client (e.g. [TightVNC](https://www.tightvnc.com/)) for backup access
+-  [TightVNC](https://www.tightvnc.com/) for backup access
 
 ### Specs & Costs
 You'll be charged for the following resources while your rig is running:
@@ -91,37 +91,17 @@ You'll also be charged for the following while your rig is running and at rest:
 
 ### Connect and finish setup (not automatic, yet)
 -  Open your [ZeroTier network](https://my.zerotier.com/network); scroll down to the Members section and mark the *Auth?* checkbox next to your gcloudrig.  You can verify the correct host by matching the Physical IP against your [running compute instances](https://console.cloud.google.com/compute/instances).
--  Use [Remote Desktop](https://www.microsoft.com/p/microsoft-remote-desktop/9wzdncrfj3ps) to connect to your rig with the ZeroTier IP.  Your username and password can be found in the [logs](https://console.cloud.google.com/logs/viewer?resource=global&minLogLevel=200).
--  Finish the Parsec installation, login and enable hosting.
-   - [Configure Parsec to only listen on the ZeroTier IP](https://support.parsecgaming.com/hc/en-us/articles/115002766652-Setting-Up-A-VPN-To-Play-Games-On-A-Virtual-Local-Network), or use the [VPC Firewall](https://cloud.google.com/vpc/docs/using-firewalls) to open up the ports required for Parsec (see [Parsec Port Forwarding](https://support.parsecgaming.com/hc/en-us/articles/115002770371-Setting-Up-Port-Forwarding-On-Your-Router) for guidance).
+-  Use [Remote Desktop](https://www.microsoft.com/p/microsoft-remote-desktop/9wzdncrfj3ps) to connect to your rig with the ZeroTier IP.  Your username and password can be found in the [logs](https://console.cloud.google.com/logs/viewer?resource=global&minLogLevel=200)
+-  Finish the [Parsec](https://ui.parsecgaming.com/) installation by logging in and enabling hosting.
 -  Double-click the *Disconnect RDP* shortcut on the desktop, which will drop your RDP session back to the local screen.  This bypasses the windows lock screen, which Parsec doesn't have permission to see.
--  Use [Parsec](https://ui.parsecgaming.com/) to connect back to your instance.
--  When you reconnect, the Parsec logo should be running in your system tray.  Right-click it, and set it *Run when my computer starts*.
+-  Login to [Parsec](https://ui.parsecgaming.com/) locally and to connect back to your instance.
+-  When you reconnect, the Parsec logo should be running in your rig's system tray.  Right-click it, and set it *Run when my computer starts*.
 -  If everything seems stable, double-click *Post ZeroTier Setup Security* on the desktop to lock down TightVNC and Parsec.
    
 ### Optional setup
 -  Get a free public hostname for your private ZeroTier IP at [Duck DNS](https://www.duckdns.org/).
    -  If you want a hostname for your dynamic public IP as well, you'll need to install a DDNS client or a startup script.
 - Restrict public access to RDP ports by modifying the `default-allow-rdp` rule in [VPC Firewall](https://cloud.google.com/vpc/docs/using-firewalls).
-
-
-## Manual software installation
-If you answered No to automatic installation during `./setup.sh`, run `./scale-up.sh` and a clean Windows Server instance will be created.
-
-Run `./reset-windows-password.sh` to get the IP, Username and Password, then connect to your instance with [Remote Desktop](https://www.microsoft.com/p/microsoft-remote-desktop/9wzdncrfj3ps).  See [Creating Passwords for Windows Instances](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances) and [Connecting to Windows Instances](https://cloud.google.com/compute/docs/instances/connecting-to-instance#windows) for more info.
-
-We recomend the following software, but feel free to find your own:
-- Install [GRID® drivers for virtual workstations](https://cloud.google.com/compute/docs/gpus/install-grid-drivers#grid-driver-windows)
-- Install [Virtual Audio Cable](https://www.vb-audio.com/Cable/) to use as a virtual sound card
-- Install [ZeroTier](https://zerotier.com/), zcreate/join a network and set it to run on boot by right-clicking it's icon in the System Tray
-- Reboot to finish GPU driver installation.
-- Login with TightVNC, set display to an appropriate screen resolution and disable any other non-GPU displays
-- Attempt to change the volume; Windows should prompt that the Windows Sound service isn't running.  Start it.  Alternatviely, run `services.msc` and change it's startup options there.
-- Install [Parsec](https://parsecgaming.com/) or your choice of streaming software
-- Setup [Autologon](https://docs.microsoft.com/en-au/sysinternals/downloads/autologon) to bypass the lock screen on boot.
-   - If automatic login fails, or you access your instance with RDP then the lock screen will prevent most streaming software from working.  You can use TightVNC to access the lock screen.
-   - Alternatively, use RDP and an [unlock script](https://steamcommunity.com/groups/homestream/discussions/0/617335934139051123/) to drop the RDP session directly to the local console, securely bypassing the lock screen.
-- Install game clients (e.g. Steam, Battlenet) and enjoy!
 
 ## Starting your rig
 Run `./scale-up.sh` to start your instance.
@@ -166,8 +146,24 @@ These are all symptoms of NVIDIA GRID / Quadro Licence failures;  the best sugge
 ### Where do I find the licenced NVIDIA GRID Drivers?
 The easiest way to browse and download the drivers is using the Storage Browser in Google Cloud Console: https://console.cloud.google.com/storage/browser/nvidia-drivers-us-public/GRID
 
-## Travelling?
+### Travelling?
 gcloudrig keeps your rig as a boot image and disk snapshot in the same GCE region. To move your rig to a different part of the world, just run `./change-region.sh` to change your default region, then run `./scale-up.sh`.  Restoring snapshots in a different region may incurr [network costs](https://cloud.google.com/compute/docs/disks/create-snapshots#network_costs), so be careful!
+
+
+
+## Manual software installation
+If you answered No to automatic installation during `./setup.sh`, run `./scale-up.sh` and a clean Windows Server instance will be created.
+
+Run `./reset-windows-password.sh` to get the IP, Username and Password, then connect to your instance with [Remote Desktop](https://www.microsoft.com/p/microsoft-remote-desktop/9wzdncrfj3ps).  See [Creating Passwords for Windows Instances](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances) and [Connecting to Windows Instances](https://cloud.google.com/compute/docs/instances/connecting-to-instance#windows) for more info.
+
+We recomend the following software, but feel free to find your own:
+- Install [GRID® drivers for virtual workstations](https://cloud.google.com/compute/docs/gpus/install-grid-drivers#grid-driver-windows)
+- Install [Virtual Audio Cable](https://www.vb-audio.com/Cable/) to use as a virtual sound card
+- Install [ZeroTier](https://zerotier.com/)
+- Install [Parsec](https://parsecgaming.com/) and setup [Autologon](https://docs.microsoft.com/en-au/sysinternals/downloads/autologon) to bypass the lock screen on boot.
+   - If automatic login fails, or you access your instance with RDP then the lock screen will prevent most streaming software from working.  You can use [TightVNC](https://www.tightvnc.com/) to access the lock screen.
+   - Alternatively, use RDP and an [unlock script](https://steamcommunity.com/groups/homestream/discussions/0/617335934139051123/) to drop the RDP session directly to the local console, securely bypassing the lock screen.
+- Install game clients (e.g. Steam, Battlenet) and enjoy!
 
 ## Contributing
 [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/gcloudrig/gcloudrig/tree/develop)
