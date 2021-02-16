@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) 2018 putty182, deekue, akilleen, TimSoethout
+Copyright (c) 2021 putty182, deekue, akilleen, vokativ, TimSoethout, SwiftWinds
+https://github.com/gcloudrig/gcloudrig/graphs/contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

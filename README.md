@@ -3,7 +3,7 @@
 A collection of bash scripts to help create and maintain a cloud gaming rig in Google Cloud Platfom, on the cheap.
 
 ### Quickstart
-[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/compute/instances?cloudshell_git_repo=https://github.com/putty182/gcloudrig&cloudshell_print=QUICKSTART.md)
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/compute/instances?cloudshell_git_repo=https://github.com/gcloudrig/gcloudrig&cloudshell_print=QUICKSTART.md)
 
 ### Prerequisites
 - A Google Cloud project with an active billing account and [GPU Quota](https://cloud.google.com/compute/quotas#requesting_additional_quota).
@@ -36,7 +36,7 @@ You'll also be charged for the following while your rig is running and at rest:
    - Linux/WSL users: Launch a bash shell locally and run `gcloud init`
 -  Clone this repository:
    ````
-   $ git clone "https://github.com/putty182/gcloudrig"
+   $ git clone "https://github.com/gcloudrig/gcloudrig"
    ````
 -  Run `setup.sh` and follow the prompts
    ````
@@ -170,6 +170,6 @@ The easiest way to browse and download the drivers is using the Storage Browser 
 gcloudrig keeps your rig as a boot image and disk snapshot in the same GCE region. To move your rig to a different part of the world, just run `./change-region.sh` to change your default region, then run `./scale-up.sh`.  Restoring snapshots in a different region may incurr [network costs](https://cloud.google.com/compute/docs/disks/create-snapshots#network_costs), so be careful!
 
 ## Contributing
-[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/putty182/gcloudrig/tree/develop)
+[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/gcloudrig/gcloudrig/tree/develop)
 
-Pull requests against the [develop](https://github.com/putty182/gcloudrig/tree/develop) branch are welcome!
+Pull requests against the [develop](https://github.com/gcloudrig/gcloudrig/tree/develop) branch are welcome!

@@ -12,4 +12,4 @@ If the scripts aren't working, ensure you have an active project:
 $ gcloud config set project $DEVSHELL_PROJECT_ID
 
 For information on how to connect to your rig, view the full readme at:
-https://github.com/putty182/gcloudrig/blob/master/README.md
+https://github.com/gcloudrig/gcloudrig/blob/master/README.md
