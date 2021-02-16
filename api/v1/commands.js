@@ -19,7 +19,7 @@ router.post(
   expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
   isCommandRunning,
   (req, res) => {
-    runCommand("../../test.sh", req.app.get('socketio'));
+    runCommand("../scale-up.sh", req.app.get('socketio'));
     res.sendStatus(200);
   }
 );
@@ -30,6 +30,7 @@ router.post(
   expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
   isCommandRunning,
   (req, res) => {
+    runCommand("../scale-down.sh", req.app.get('socketio'));
     res.sendStatus(200);
   }
 );
