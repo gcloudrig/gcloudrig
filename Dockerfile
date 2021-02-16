@@ -16,7 +16,11 @@ ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 WORKDIR /usr/src/app
 COPY . .
 
+ARG project_id 
+ENV PROJECT_ID=$project_id
+
 RUN gcloud auth activate-service-account --key-file ./service_account.json
+RUN gcloud config set project $PROJECT_ID
 
 WORKDIR /usr/src/app/api
 RUN npm ci --only=production

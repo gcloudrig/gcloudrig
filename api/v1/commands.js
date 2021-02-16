@@ -34,16 +34,6 @@ router.post(
   }
 );
 
-//setup - would require post data for all of the options and to modify the script to accept flags
-router.post(
-  "/setup",
-  expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
-  isCommandRunning,
-  (req, res) => {
-    res.sendStatus(200);
-  }
-);
-
 //change region
 router.post(
   "/region",
