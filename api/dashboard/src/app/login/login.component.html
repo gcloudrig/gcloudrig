@@ -2,24 +2,36 @@
   <main class="form-signin">
     <img class="mb-4" src="assets/img/cloud.png" alt="" height="57" />
     <h1 class="h3 mb-3 fw-normal">Please sign in</h1>
-    <input
-    #username
-      type="username"
-      id="inputUsername"
-      class="form-control"
-      placeholder="Username"
-      required
-      autofocus
-    />
-    <input
-        #password
-      type="password"
-      id="inputPassword"
-      class="form-control"
-      placeholder="Password"
-      required
-    />
-    <button class="w-100 btn btn-lg btn-primary" (click)="login(username.value, password.value)">Sign in</button>
+    <form [formGroup]="form">
+      <fieldset>
+        <div class="form-field">
+          <input
+            type="username"
+            id="inputUsername"
+            class="form-control"
+            placeholder="Username"
+            formControlName="username"
+            required
+            autofocus
+          />
+        </div>
+        <div class="form-field">
+          <input
+            type="password"
+            id="inputPassword"
+            class="form-control"
+            placeholder="Password"
+            formControlName="password"
+            required
+          />
+        </div>
+      </fieldset>
+      <div class="form-buttons">
+        <button class="w-100 btn btn-lg btn-primary" (click)="login()">
+          Sign in
+        </button>
+      </div>
+    </form>
     <p class="mt-5 mb-3 text-muted">&copy; 2017–2021</p>
   </main>
 </div>

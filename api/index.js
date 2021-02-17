@@ -4,6 +4,7 @@ const server = require("http").Server(app);
 const cors = require("cors");
 const commandRoutes = require("./v1/commands");
 const authRoutes = require("./v1/auth");
+var bodyParser = require('body-parser');
 
 const PORT = process.env.PORT;
 const HOST = "0.0.0.0";
@@ -26,15 +27,9 @@ io.use(
 
 app.set('socketio', io);
 
-app.use(express.urlencoded({ extended: true }));
-
-var corsOptions = {
-  origin: ["*"], //for now
-  optionsSuccessStatus: 200,
-};
-app.use(cors(corsOptions));
-
+app.use(cors());
 app.use(express.static("public"));
+app.use(bodyParser.json());
 
 app.get("/", async (req, res) => {
   //send angular app

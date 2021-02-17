@@ -13,57 +13,37 @@ function isCommandRunning(req, res, next) {
   }
 }
 
-//scale up instance
-router.post(
-  "/up",
-  expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
-  isCommandRunning,
-  (req, res) => {
-    runCommand("../scale-up.sh", req.app.get('socketio'));
-    res.sendStatus(200);
-  }
+router.use(
+  expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }) // Handle JWT auth
 );
+router.use(isCommandRunning); //Make sure no other commands are running
+
+//scale up instance
+router.post("/up", (req, res) => {
+  //runCommand("../scale-up.sh", req.app.get("socketio"));
+  res.sendStatus(200);
+});
 
 //scale down instance
-router.post(
-  "/down",
-  expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
-  isCommandRunning,
-  (req, res) => {
-    runCommand("../scale-down.sh", req.app.get('socketio'));
-    res.sendStatus(200);
-  }
-);
+router.post("/down", (req, res) => {
+  //runCommand("../scale-down.sh", req.app.get("socketio"));
+  res.sendStatus(200);
+});
 
 //change region
-router.post(
-  "/region",
-  expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
-  isCommandRunning,
-  (req, res) => {
-    res.sendStatus(200);
-  }
-);
+router.post("/region", (req, res) => {
+  res.sendStatus(200);
+});
 
 //get status
-router.post(
-  "/status",
-  expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
-  isCommandRunning,
-  (req, res) => {
-    res.sendStatus(200);
-  }
-);
+router.post("/status", (req, res) => {
+  res.sendStatus(200);
+});
 
 //nuke and run
-router.post(
-  "/destroy",
-  expressJwt({ secret: process.env.JWT_SECRET, algorithms: ["HS256"] }),
-  isCommandRunning,
-  (req, res) => {
-    res.sendStatus(200);
-  }
-);
+router.post("/destroy", (req, res) => {
+  res.sendStatus(200);
+});
 
 router.use(function (err, req, res, next) {
   if (err.name === "UnauthorizedError") {
@@ -88,7 +68,7 @@ function runCommand(command, io) {
 
   myProcess.on("exit", () => {
     processingCommand = false;
-    console.log('command complete');
+    console.log("command complete");
   });
 }
 
