@@ -414,6 +414,7 @@ function gcloudrig_get_accelerator_zones {
 
   # list of valid zones
   zones=$(gcloud compute zones list --filter "region:$region" --format "value(name)")
+  zones=${zones//$'\n'/' '}
 
   # list of valid zones that have the accelerator we want
   gcloud compute accelerator-types list \
