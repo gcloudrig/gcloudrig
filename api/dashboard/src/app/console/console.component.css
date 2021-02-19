@@ -1,0 +1,12 @@
+.log {
+    background-color: rgb(55, 55, 55);
+    border-radius: 10px;
+    width: 50%;
+    height: 100vh;
+    padding: 20px 20px 20px 20px;
+}
+
+.command {
+    color: white;
+    margin-bottom: 20px;
+}

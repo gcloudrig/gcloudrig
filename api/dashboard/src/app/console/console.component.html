@@ -1,0 +1,13 @@
+<div class="container-fluid">
+    <div class="row">
+        <div class="col log">
+            <h2 class="command">{{command | async}}</h2>
+            <ng-container *ngFor="let data of processData">
+                <app-logitem [item]=data></app-logitem>
+            </ng-container>
+        </div>
+        <div class="col">
+            <a name="" id="" class="btn btn-primary" href="#" role="button"></a>
+        </div>
+    </div>
+</div>

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 
 @Component({
   selector: 'app-logitem',
@@ -6,7 +6,8 @@ import { Component, OnInit } from '@angular/core';
   styleUrls: ['./logitem.component.css']
 })
 export class LogitemComponent implements OnInit {
-
+  @Input() item: string | undefined;
+  
   constructor() { }
 
   ngOnInit(): void {

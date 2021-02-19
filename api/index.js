@@ -13,17 +13,16 @@ const socketioJwt = require("socketio-jwt");
 
 const io = require("socket.io")(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
+    origin: "http://localhost:4200",
+    methods: ["GET", "POST"]
+  }
 });
-
-io.use(
-  socketioJwt.authorize({
-    secret: process.env.JWT_SECRET,
-    handshake: true,
-  })
-);
+// io.use(
+//   socketioJwt.authorize({
+//     secret: process.env.JWT_SECRET,
+//     handshake: true,
+//   })
+// );
 
 app.set('socketio', io);
 

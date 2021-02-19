@@ -32,11 +32,13 @@ router.post("/down", (req, res) => {
 
 //change region
 router.post("/region", (req, res) => {
+  runCommand("../test.sh", req.app.get("socketio"));
   res.sendStatus(200);
 });
 
 //get status
 router.post("/status", (req, res) => {
+  req.app.get("socketio").sockets.emit("process_data", 'test1234');
   res.sendStatus(200);
 });
 
@@ -52,9 +54,15 @@ router.use(function (err, req, res, next) {
 });
 
 function runCommand(command, io) {
+
+  var commandToSend = command.replace('..', '');
+  commandToSend = commandToSend.replace('/', '');
+  io.sockets.emit("command", commandToSend);
+
   processingCommand = true;
   var myProcess = spawn(command);
   myProcess.stdout.setEncoding("utf-8");
+  
   myProcess.stdout.on("data", function (data) {
     io.sockets.emit("process_data", data);
     console.log(data);
