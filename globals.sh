@@ -544,8 +544,12 @@ function gcloudrig_update_instance_group {
 
 # deletes existing instance group and all templates
 function gcloudrig_delete_instance_group {
-# check for running instances
+  # check for running instances
   groupsize=$(gcloud compute instance-groups list --filter "name=$INSTANCEGROUP region:($REGION)" --format "value(size)" --quiet || echo "0")
+  if [[ "${groupsize}" == "" ]]; then
+    groupsize="0"
+  fi
+
   deleteok="N"
   if [ "$groupsize" -gt 0 ]; then
     echo
