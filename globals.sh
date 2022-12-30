@@ -427,6 +427,25 @@ function gcloudrig_get_accelerator_zones {
 # INSTANCE GROUP #
 ##################
 
+# We previously used sed commands instead, such as:
+# $ sed -i 's/^$GcloudrigPrefix\=.*/$GcloudrigPrefix="'"$GCLOUDRIG_PREFIX"'"/' "$DIR/gcloudrig-boot.ps1"
+# That did however not work well on macOS. This function does.
+function gcloudrig_set_boot_ps1_variable {
+  local key="${1}"
+  local value="${2}"
+  local ps1file="$DIR/gcloudrig-boot.ps1"
+  local nl=$'\n'
+  local content=""
+  local line
+  while IFS="" read -r line || [[ -n "$line" ]]; do
+    if [[ "${line}" == "\$${key}=\""* ]]; then
+      line="\$${key}=\"${value}\""
+    fi
+    content="${content}${line}${nl}"
+  done < "${ps1file}"
+  echo "${content%?}" > "${ps1file}"
+}
+
 function gcloudrig_create_instance_template {
   local templateName="$1" # required
   local imageFlags
@@ -447,12 +466,10 @@ function gcloudrig_create_instance_template {
   fi
 
   echo "Modifying gcloudrig-boot.ps1 variables..."
-  #shellcheck disable=SC2016
-  sed -i 's/^$GcloudrigPrefix\=.*/$GcloudrigPrefix="'"$GCLOUDRIG_PREFIX"'"/' "$DIR/gcloudrig-boot.ps1"
-  #shellcheck disable=SC2016
-  sed -i 's/^$GCPLabel\=.*/$GCPLabel="'"$GCLOUDRIG_PREFIX"'"/' "$DIR/gcloudrig-boot.ps1"
-  #shellcheck disable=SC2016
-  sed -i 's/^$GamesDiskName\=.*/$GamesDiskName="'"$GAMESDISK"'"/' "$DIR/gcloudrig-boot.ps1"
+
+  gcloudrig_set_boot_ps1_variable "GcloudrigPrefix" "$GCLOUDRIG_PREFIX"
+  gcloudrig_set_boot_ps1_variable "GCPLabel" "$GCLOUDRIG_PREFIX"
+  gcloudrig_set_boot_ps1_variable "GamesDiskName" "$GAMESDISK"
 
   echo "Creating instance template '$templateName'..."
 
