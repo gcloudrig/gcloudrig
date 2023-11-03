@@ -2,7 +2,7 @@
 
 A collection of bash scripts to help create and maintain a cloud gaming rig in Google Cloud Platfom, on the cheap.
 
-### Quickstart
+### Quickstart 
 [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/compute/instances?cloudshell_git_repo=https://github.com/gcloudrig/gcloudrig&cloudshell_print=QUICKSTART.md)
 
 ### Prerequisites
